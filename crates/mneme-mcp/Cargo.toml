@@ -1,0 +1,16 @@
+[package]
+name = "mneme-mcp"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mneme-core = { path = "../mneme-core" }
+serde_json.workspace = true
+
+[[bin]]
+name = "mneme-mcp"
+path = "src/main.rs"
+

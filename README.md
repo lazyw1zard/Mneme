@@ -47,10 +47,16 @@ The server starts with plain files:
 - `data/state.json` for active affect/context state
 - `data/events.jsonl` for append-only traces
 
-The Rust workspace will start with:
+The Rust workspace starts with:
 
 - `crates/mneme-core` for memory logic
 - `crates/mneme-mcp` for the MCP stdio server
+
+Current implementation status:
+
+- `mneme-core` loads profile/state JSON files
+- `mneme-core` scores memory nodes by context, tags, affect resonance, pinned status, and decay
+- `mneme-mcp` is currently a CLI smoke-test binary and will become the MCP stdio server next
 
 ## Run
 

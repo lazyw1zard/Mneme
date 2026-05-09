@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "crates/mneme-core",
+    "crates/mneme-mcp",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://example.invalid/mneme"
+rust-version = "1.95"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
