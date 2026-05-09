@@ -28,6 +28,8 @@ open source, permissive by default, dependency-audited
 
 See `LICENSE_POLICY.md` before adding dependencies.
 
+See `ARCHITECTURE.md` for the first implementation structure.
+
 ## Shape
 
 ```text
@@ -44,6 +46,11 @@ The server starts with plain files:
 - `data/profile-index.json` for memory nodes
 - `data/state.json` for active affect/context state
 - `data/events.jsonl` for append-only traces
+
+The Rust workspace will start with:
+
+- `crates/mneme-core` for memory logic
+- `crates/mneme-mcp` for the MCP stdio server
 
 ## Run
 

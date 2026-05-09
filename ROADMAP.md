@@ -169,10 +169,10 @@ Avoid in backend dependencies unless explicitly discussed:
 - source-available custom licenses
 - network-use restricted licenses
 
-The official MCP Go SDK is acceptable for the current direction:
+The official MCP Rust SDK is acceptable for the current direction:
 
 ```text
-github.com/modelcontextprotocol/go-sdk
+modelcontextprotocol/rust-sdk
 ```
 
 Its license file records the MCP project's transition from MIT to Apache-2.0,
@@ -462,14 +462,14 @@ Events:
 - engram activated
 - project context changed
 
-### M6: Local API
+### M6: Local API / Secondary Transport
 
-Expose local state through a small service.
+Expose local state through a small service only after the stdio MCP server works.
 
 Possible stack:
 
 ```text
-Python + FastAPI
+Rust HTTP transport or a thin companion service
 ```
 
 Initial endpoints:
