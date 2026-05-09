@@ -72,43 +72,73 @@ Python may remain useful as glue:
 - notebooks or analysis helpers
 - compatibility adapters
 
-But the primary Mneme backend should be Go first.
+But the primary Mneme backend should not be chosen only for speed of first implementation.
+
+As of 2026-05-09, the first significant implementation choice is:
 
 Decision:
 
 ```text
-Go = primary MCP server and memory backend
+Rust = primary Mneme backend, MCP server, and memory engine
 Python = glue only
-Rust = later candidate for storage/graph engine if needed
+Go = optional adapter language, not core
 ```
 
-Why Go first:
+Why Rust:
 
-- official MCP Go SDK exists
-- produces a simple portable binary
-- fast enough for local memory routing
-- easier deployment across Codex, OpenClaw, Hermes, and other hosts
-- lower implementation friction than Rust for the first server
-- straightforward JSON/JSONL/SQLite work
-- good fit for stdio and later HTTP transports
+- official MCP Rust SDK exists
+- produces a portable local binary
+- strong type system fits memory nodes, affect vectors, events, and routing rules
+- explicit error handling fits memory integrity
+- ownership and borrowing are semantically aligned with controlled recall and mutation
+- good long-term fit for SQLite, graph storage, indexing, and safe local data handling
+- better matches Mneme as an open-source memory substrate rather than a helper utility
 
-Why not Rust first:
+Why not Go first:
 
-- excellent for correctness and high-integrity internals
-- stronger fit for a later storage engine than for the first MCP surface
-- more build/toolchain friction
-- current local Rust toolchain is old enough to be a constraint
+- Go would reduce early implementation friction
+- Go would be easier to read at first glance
+- Go has an official MCP SDK and simple deployment
+- but Go is less semantically aligned with Mneme's core: typed memory, controlled mutation, integrity, and long-term storage
+
+The tradeoff is accepted:
+
+```text
+Rust is harder to learn,
+but Mneme is a memory engine,
+not a throwaway integration script.
+```
+
+To keep Rust from overwhelming the project, Mneme will use a constrained Rust subset at first:
+
+- plain structs and enums
+- `serde` for JSON
+- `thiserror` or simple custom errors
+- `anyhow` only in binaries, not core library surfaces
+- `clap` only for CLI if needed
+- `tracing` for logs
+- no macro-heavy architecture
+- no premature async complexity outside MCP requirements
+- no generic abstraction until repetition proves it necessary
+
+Teaching rule:
+
+```text
+Every Rust structure should be explainable to Denis as part of the memory architecture.
+If it cannot be explained, it is probably too clever for Mneme.
+```
 
 Mneme can still become polyglot later:
 
 ```text
-Go MCP shell
-  -> SQLite / file store
-  -> optional Rust graph/storage core
+Rust MCP/backend shell
+  -> JSON/JSONL first
+  -> SQLite / graph store later
   -> optional Python import/export glue
+  -> optional Go adapters if another host benefits from them
 ```
 
-But the first real backend should be a Go binary.
+But the first real backend should be a Rust binary.
 
 ## Open Source And License Discipline
 

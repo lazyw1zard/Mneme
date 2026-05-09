@@ -12,7 +12,7 @@ Use a local server command:
 {
   "mcpServers": {
     "mneme": {
-      "command": "C:\\Projects\\Nira_kernel\\projects\\mneme\\bin\\mneme-mcp.exe",
+      "command": "C:\\Projects\\Nira_kernel\\projects\\mneme\\target\\release\\mneme-mcp.exe",
       "args": [],
       "cwd": "C:\\Projects\\Nira_kernel\\projects\\mneme"
     }
@@ -26,7 +26,7 @@ If the client does not support `cwd`, pass environment variables:
 {
   "mcpServers": {
     "mneme": {
-      "command": "C:\\Projects\\Nira_kernel\\projects\\mneme\\bin\\mneme-mcp.exe",
+      "command": "C:\\Projects\\Nira_kernel\\projects\\mneme\\target\\release\\mneme-mcp.exe",
       "args": [],
       "env": {
         "MNEME_PROJECT_ROOT": "C:\\Projects\\Nira_kernel\\projects\\mneme",

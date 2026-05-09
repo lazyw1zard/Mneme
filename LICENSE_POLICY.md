@@ -66,14 +66,14 @@ unless Denis explicitly chooses that tradeoff.
 Candidate:
 
 ```text
-github.com/modelcontextprotocol/go-sdk
+modelcontextprotocol/rust-sdk
 ```
 
 Observed license status:
 
 ```text
 MCP project is transitioning from MIT to Apache-2.0.
-The Go SDK LICENSE contains Apache-2.0 terms, MIT terms for older contributions,
+The Rust SDK LICENSE contains Apache-2.0 terms, MIT terms for older contributions,
 and CC-BY-4.0 for documentation excluding specifications.
 ```
 
@@ -86,22 +86,22 @@ Acceptable for Mneme's open-source direction.
 Source:
 
 ```text
-https://github.com/modelcontextprotocol/go-sdk/blob/main/LICENSE
+https://github.com/modelcontextprotocol/rust-sdk/blob/main/LICENSE
 ```
 
 ## Audit Practice
 
-Before adding a Go dependency:
+Before adding a Rust dependency:
 
 ```powershell
-go list -m -json all
+cargo tree
 ```
 
 Then check licenses with one of:
 
 ```powershell
-go-licenses report ./...
-govulncheck ./...
+cargo deny check licenses
+cargo audit
 ```
 
 If tooling is not installed yet, record the dependency and license manually in this file before committing.
@@ -124,4 +124,3 @@ Avoid dependencies that make Mneme:
 Open source is not only publishing code.
 It is keeping the memory organ forkable, inspectable, and free enough to trust.
 ```
-

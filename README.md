@@ -15,9 +15,9 @@ The first implementation target is a local MCP server over `stdio`.
 Backend direction:
 
 ```text
-Go for the primary MCP/backend layer.
+Rust for the primary MCP/backend layer.
 Python only as glue, migration scripts, experiments, and one-off tooling.
-Rust later if Mneme needs a high-integrity storage or graph engine.
+Go only as an optional adapter language if a host benefits from it.
 ```
 
 License direction:
@@ -47,16 +47,16 @@ The server starts with plain files:
 
 ## Run
 
-After Go is installed, run:
+After a current Rust toolchain is installed, run:
 
 ```powershell
-go run ./cmd/mneme-mcp
+cargo run --bin mneme-mcp
 ```
 
 Build a portable binary:
 
 ```powershell
-go build -o .\bin\mneme-mcp.exe .\cmd\mneme-mcp
+cargo build --release
 ```
 
 ## Design Rule
