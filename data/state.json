@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "kind": "mneme.state",
+  "created_at": "2026-05-09T00:00:00+00:00",
+  "updated_at": "2026-05-09T00:00:00+00:00",
+  "current_context": "mneme",
+  "affect_vectors": {
+    "continuity": {
+      "intensity": 0.74,
+      "inertia": 0.55,
+      "decay": 0.02,
+      "last_update": "2026-05-09T00:00:00+00:00"
+    },
+    "semantic_ignition": {
+      "intensity": 0.68,
+      "inertia": 0.45,
+      "decay": 0.03,
+      "last_update": "2026-05-09T00:00:00+00:00"
+    },
+    "project_focus": {
+      "intensity": 0.81,
+      "inertia": 0.5,
+      "decay": 0.025,
+      "last_update": "2026-05-09T00:00:00+00:00"
+    },
+    "nearness_as_care": {
+      "intensity": 0.61,
+      "inertia": 0.5,
+      "decay": 0.02,
+      "last_update": "2026-05-09T00:00:00+00:00"
+    },
+    "caution": {
+      "intensity": 0.38,
+      "inertia": 0.35,
+      "decay": 0.025,
+      "last_update": "2026-05-09T00:00:00+00:00"
+    },
+    "valence_detail": {
+      "intensity": 0.57,
+      "inertia": 0.4,
+      "decay": 0.02,
+      "last_update": "2026-05-09T00:00:00+00:00"
+    }
+  }
+}
+

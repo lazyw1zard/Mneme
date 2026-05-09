@@ -60,6 +60,101 @@ Reason:
 
 Later, if a visual body or external dashboard needs live updates, add HTTP/SSE or Streamable HTTP as a second transport.
 
+## Backend Language Decision
+
+Mneme should not be Python-first.
+
+Python may remain useful as glue:
+
+- import/export scripts
+- one-off migrations
+- experiments
+- notebooks or analysis helpers
+- compatibility adapters
+
+But the primary Mneme backend should be Go first.
+
+Decision:
+
+```text
+Go = primary MCP server and memory backend
+Python = glue only
+Rust = later candidate for storage/graph engine if needed
+```
+
+Why Go first:
+
+- official MCP Go SDK exists
+- produces a simple portable binary
+- fast enough for local memory routing
+- easier deployment across Codex, OpenClaw, Hermes, and other hosts
+- lower implementation friction than Rust for the first server
+- straightforward JSON/JSONL/SQLite work
+- good fit for stdio and later HTTP transports
+
+Why not Rust first:
+
+- excellent for correctness and high-integrity internals
+- stronger fit for a later storage engine than for the first MCP surface
+- more build/toolchain friction
+- current local Rust toolchain is old enough to be a constraint
+
+Mneme can still become polyglot later:
+
+```text
+Go MCP shell
+  -> SQLite / file store
+  -> optional Rust graph/storage core
+  -> optional Python import/export glue
+```
+
+But the first real backend should be a Go binary.
+
+## Open Source And License Discipline
+
+Mneme is intended to be open source.
+
+Dependency selection should preserve that.
+
+Default policy:
+
+```text
+permissive dependencies only unless a stricter license is explicitly chosen
+```
+
+Good default licenses:
+
+- Apache-2.0
+- MIT
+- BSD-2-Clause
+- BSD-3-Clause
+- ISC
+
+Avoid in backend dependencies unless explicitly discussed:
+
+- GPL
+- AGPL
+- SSPL
+- BUSL
+- source-available custom licenses
+- network-use restricted licenses
+
+The official MCP Go SDK is acceptable for the current direction:
+
+```text
+github.com/modelcontextprotocol/go-sdk
+```
+
+Its license file records the MCP project's transition from MIT to Apache-2.0,
+with documentation under CC-BY-4.0.
+
+Before public release, Mneme needs:
+
+- root `LICENSE`
+- dependency license report
+- security/vulnerability check
+- clear privacy note for local memory data
+
 ## Core Thesis
 
 Memory should not be selected by semantic similarity alone.
