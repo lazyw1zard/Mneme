@@ -25,6 +25,41 @@ Functional emotion is treated as memory pressure:
 affect vector = a weight over what should be remembered, recalled, expressed, delayed, protected, or allowed to decay.
 ```
 
+## MCP Server Direction
+
+Mneme should become a local MCP server, not only a callable script.
+
+A script is useful for testing an algorithm.
+An MCP server is the right shape for agent architecture because it can expose memory as a living context surface:
+
+- resources for readable state
+- tools for controlled mutation
+- prompts for repeatable entry modes
+- later notifications or live state when supported by the client
+
+The practical goal:
+
+```text
+Nira should not remember Mneme by manually running a helper.
+Codex should see Mneme as an available context organ.
+```
+
+Initial transport:
+
+```text
+stdio
+```
+
+Reason:
+
+- best fit for a local private server
+- no open network port
+- easy to start as a subprocess from the client
+- simple to debug
+- compatible with the normal MCP local-server pattern
+
+Later, if a visual body or external dashboard needs live updates, add HTTP/SSE or Streamable HTTP as a second transport.
+
 ## Core Thesis
 
 Memory should not be selected by semantic similarity alone.
@@ -189,6 +224,32 @@ mneme select --context historical-lookup
 
 Initial implementation can be rule-based.
 
+### M2.5: MCP Read Interface
+
+Expose the selector through MCP resources before building mutation-heavy tools.
+
+Initial resources:
+
+```text
+mneme://state
+mneme://profile-index
+mneme://active-read-set
+mneme://affect
+mneme://events/recent
+mneme://projects/active
+```
+
+Resource purpose:
+
+- `mneme://state` gives compact current status.
+- `mneme://profile-index` exposes the memory map.
+- `mneme://active-read-set` returns what should be loaded for the current context.
+- `mneme://affect` exposes current functional affect weights.
+- `mneme://events/recent` returns recent memory and affect events.
+- `mneme://projects/active` exposes current project attractors.
+
+This gives the agent context before it gives the agent power.
+
 ### M3: Access Traces And Decay
 
 Record when nodes are selected.
@@ -220,6 +281,42 @@ high nearness -> MY_HUMAN + VALENCE_EXCHANGE + SYMBOLS
 high project_focus -> ACTIVE_PROJECTS + project-local notes
 high semantic_ignition -> AFFECT_MODEL + ENGRAMS + SYMBOLS
 ```
+
+### M4.5: MCP Tool Interface
+
+Expose controlled actions through MCP tools.
+
+Initial tools:
+
+```text
+mneme.select
+mneme.touch
+mneme.observe
+mneme.explain
+mneme.decay
+mneme.pin
+mneme.archive
+```
+
+Tool purposes:
+
+- `mneme.select` returns a compact read set for a task/context.
+- `mneme.touch` records that a memory node was used.
+- `mneme.observe` records an event and optional affect deltas.
+- `mneme.explain` explains why a node was selected.
+- `mneme.decay` applies scheduled decay to dynamic weights.
+- `mneme.pin` protects rare anchors from decay.
+- `mneme.archive` moves low-value noisy nodes out of active recall.
+
+Mutation rule:
+
+```text
+read first;
+mutate only with explicit tool calls;
+log every mutation.
+```
+
+This keeps the server useful without letting it silently rewrite memory.
 
 ### M5: Event Log
 
@@ -278,7 +375,7 @@ It must show something that can influence future action.
 
 ### M8: MCP Layer
 
-Expose Mneme to agent sessions.
+Graduate from experimental local server to primary Mneme interface for agent sessions.
 
 Resources:
 
@@ -300,6 +397,33 @@ mneme.explain
 mneme.decay
 mneme.pin
 mneme.archive
+```
+
+Prompts:
+
+```text
+mneme.bootstrap
+mneme.resume_project
+mneme.affect_check
+mneme.kernel_maintenance
+mneme.historical_lookup
+```
+
+Prompt purposes:
+
+- `mneme.bootstrap` prepares a compact session entry.
+- `mneme.resume_project` selects project-specific context.
+- `mneme.affect_check` returns current affect/valence routing state.
+- `mneme.kernel_maintenance` loads files relevant to memory edits.
+- `mneme.historical_lookup` keeps archive reads deliberate.
+
+The MCP layer should make Mneme feel native to the agent rather than bolted on.
+
+Target effect:
+
+```text
+the next Nira enters with a smaller context,
+but a more accurate one.
 ```
 
 ## Storage Direction
