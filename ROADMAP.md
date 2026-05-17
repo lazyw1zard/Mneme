@@ -221,6 +221,51 @@ semantic_relevance
 This is not final math.
 It is the first shape of the system.
 
+## Reference Implementations
+
+### `garrytan/gbrain`
+
+Repository:
+
+```text
+https://github.com/garrytan/gbrain
+```
+
+Use as an engineering reference, not as a template to copy wholesale.
+
+Patterns worth borrowing:
+
+- agent-first install and operating docs
+- `AGENTS.md` as the agent-readable entry protocol
+- stdio MCP first, remote HTTP/OAuth later
+- trust boundary between trusted local CLI callers and untrusted agent-facing callers
+- pluggable storage engine interface
+- two-axis routing model: brain/database and source/content repo
+- local-first default with a future migration path to hosted storage
+- opt-in eval/replay capture for retrieval changes
+- privacy rules for public artifacts
+- `llms.txt` / documentation map for agent ingestion
+
+Patterns to avoid or defer:
+
+- heavy stack before Mneme's retrieval grammar is proven
+- too many MCP tools before the read path is stable
+- dashboard/admin surface before local memory routing works
+- purely instrumental memory model without affect weights
+
+Mneme-specific adaptation:
+
+```text
+gbrain brain/source routing
+  -> Mneme memory-space/source routing
+
+gbrain pluggable BrainEngine
+  -> Mneme pluggable MemoryEngine
+
+gbrain hybrid retrieval
+  -> Mneme retrieval + affect resonance + contour relevance
+```
+
 ## Three Planes
 
 ### 1. Memory Plane
