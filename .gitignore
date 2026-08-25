@@ -1,0 +1,9 @@
+# Ignore local runtime byproducts
+
+.DS_Store
+*.tmp
+*.bak
+.cache/
+target/
+.venv/
+.env
