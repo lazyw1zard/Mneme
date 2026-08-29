@@ -6,16 +6,22 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from .core import DEFAULT_TTL_SECONDS, MnionCaptureRequest, capture_mnion
+from .core import (
+    CONSOLIDATION_THRESHOLD,
+    DEFAULT_TTL_SECONDS,
+    MnionCaptureRequest,
+    capture_mnion,
+    valence_crosses_threshold,
+)
 
 DEFAULT_LEDGER_PATH = Path.home() / ".local" / "state" / "nira-mneme" / "mnions.jsonl"
 
 CAPTURE_DESCRIPTION = (
-    "Capture one cheap ephemeral mnion tag for Mneme. Use when the live turn leaves "
-    "a correction, self-promise, affect signal, contour shift, loss-cost, curiosity pull, "
-    "or other movement that may deserve consolidation. This only appends a small tag; "
-    "unreinforced tags may decay. It does not create graph edges, embeddings, deep memory, "
-    "kernel updates, or engrams."
+    "Capture one cheap ephemeral mnion: a small contour delta with valence, TTL, hooks, "
+    "trigger, and affect hints. Use when the live turn leaves a correction, self-promise, "
+    "affect signal, contour shift, loss-cost, curiosity pull, or other movement that may "
+    "deserve later consolidation. Unreinforced mnions decay. This does not create graph "
+    "edges, embeddings, deep memory, kernel updates, or engrams."
 )
 
 
@@ -24,36 +30,40 @@ def create_server(*, ledger_path: str | Path = DEFAULT_LEDGER_PATH) -> FastMCP:
     server = FastMCP(
         "nira-mnion-capture",
         instructions=(
-            "Mnion is a capture organ, not full Mneme. Capture minimal ephemeral tags "
-            "when affect/significance is visible; do not promote them automatically."
+            "Mnion is a capture organ, not full Mneme. Capture minimal ephemeral contour "
+            "deltas when affect/significance is visible; threshold crossing only means "
+            "later review pressure, not automatic promotion."
         ),
     )
 
     @server.tool(name="mnion_capture", description=CAPTURE_DESCRIPTION)
     def mnion_capture(
-        stub: str,
-        source_ref: str,
-        trigger: str,
-        affect_hints: list[str] | None = None,
-        evidence: list[str] | None = None,
+        delta: str,
+        valence: float,
         ttl_seconds: int = DEFAULT_TTL_SECONDS,
+        hooks: list[str] | None = None,
+        trigger: str | None = None,
+        affect_hints: list[str] | None = None,
     ) -> dict[str, Any]:
         request = MnionCaptureRequest(
-            stub=stub,
-            source_ref=source_ref,
+            delta=delta,
+            valence=valence,
+            ttl_seconds=ttl_seconds,
+            hooks=hooks,
             trigger=trigger,
             affect_hints=affect_hints,
-            evidence=evidence,
-            ttl_seconds=ttl_seconds,
         )
         record = capture_mnion(request, ledger_path=ledger)
+        crosses = valence_crosses_threshold(record.valence)
         return {
             "ok": True,
             "record": asdict(record),
+            "valence_crosses_threshold": crosses,
+            "threshold": CONSOLIDATION_THRESHOLD,
             "do_not_infer": [
                 "This is not durable memory.",
+                "Threshold crossing is review pressure, not automatic promotion.",
                 "No graph edges, embeddings, deep-memory nodes, kernel notes, or engrams were created.",
-                "Promotion requires later valence/review governance.",
             ],
         }
 

@@ -29,7 +29,7 @@ Goal: prove that I can capture a live movement as a cheap, ephemeral tag before 
 Behavior:
 
 ```text
-mnion_capture(stub, source_ref, trigger, affect_hints, evidence, ttl_seconds)
+mnion_capture(delta, valence, ttl_seconds, hooks, trigger, affect_hints)
   -> append one JSONL mnion tag
   -> no graph, embedding, pointer, deep memory, kernel write, or engram
 ```

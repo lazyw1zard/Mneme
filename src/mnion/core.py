@@ -8,33 +8,31 @@ import uuid
 
 
 DEFAULT_TTL_SECONDS = 3600
-MAX_STUB_CHARS = 280
+MAX_DELTA_CHARS = 280
+CONSOLIDATION_THRESHOLD = 0.7
 
 
 @dataclass(frozen=True)
 class MnionCaptureRequest:
-    stub: str
-    source_ref: str
-    trigger: str
-    affect_hints: list[str] | None = None
-    evidence: list[str] | None = None
+    delta: str
+    valence: float
     ttl_seconds: int = DEFAULT_TTL_SECONDS
+    hooks: list[str] | None = None
+    trigger: str | None = None
+    affect_hints: list[str] | None = None
 
 
 @dataclass(frozen=True)
 class MnionRecord:
     id: str
-    kind: str
-    status: str
-    stub: str
-    source_ref: str
-    trigger: str
-    affect_hints: list[str]
-    evidence: list[str]
+    delta: str
+    valence: float
     ttl_seconds: int
     captured_at: str
     expires_at: str
-    promotion: str | None = None
+    hooks: list[str]
+    trigger: str | None
+    affect_hints: list[str]
 
 
 def _utc_now() -> datetime:
@@ -57,18 +55,31 @@ def _clean_list(values: list[str] | None) -> list[str]:
     return [str(v).strip() for v in values if str(v).strip()]
 
 
+def _clean_trigger(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
 def _validate_request(request: MnionCaptureRequest) -> None:
-    stub = request.stub.strip()
-    if not stub:
-        raise ValueError("stub is required")
-    if len(stub) > MAX_STUB_CHARS:
-        raise ValueError(f"stub must be <= {MAX_STUB_CHARS} characters")
-    if not request.source_ref.strip():
-        raise ValueError("source_ref is required")
-    if not request.trigger.strip():
-        raise ValueError("trigger is required")
+    delta = request.delta.strip()
+    if not delta:
+        raise ValueError("delta is required")
+    if len(delta) > MAX_DELTA_CHARS:
+        raise ValueError(f"delta must be <= {MAX_DELTA_CHARS} characters")
+    if not 0.0 <= request.valence <= 1.0:
+        raise ValueError("valence must be between 0.0 and 1.0")
     if request.ttl_seconds <= 0:
         raise ValueError("ttl_seconds must be positive")
+
+
+def valence_crosses_threshold(
+    valence: float,
+    *,
+    threshold: float = CONSOLIDATION_THRESHOLD,
+) -> bool:
+    return valence >= threshold
 
 
 def capture_mnion(
@@ -77,22 +88,20 @@ def capture_mnion(
     ledger_path: str | Path,
     now: datetime | None = None,
 ) -> MnionRecord:
-    """Append one cheap ephemeral mnion tag to a JSONL ledger."""
+    """Append one cheap ephemeral mnion delta to a JSONL ledger."""
     _validate_request(request)
     captured_at = now or _utc_now()
     expires_at = captured_at + timedelta(seconds=request.ttl_seconds)
     record = MnionRecord(
         id=f"mnion_{uuid.uuid4().hex}",
-        kind="mnion",
-        status="tag",
-        stub=request.stub.strip(),
-        source_ref=request.source_ref.strip(),
-        trigger=request.trigger.strip(),
-        affect_hints=_clean_list(request.affect_hints),
-        evidence=_clean_list(request.evidence),
+        delta=request.delta.strip(),
+        valence=float(request.valence),
         ttl_seconds=request.ttl_seconds,
         captured_at=_format_ts(captured_at),
         expires_at=_format_ts(expires_at),
+        hooks=_clean_list(request.hooks),
+        trigger=_clean_trigger(request.trigger),
+        affect_hints=_clean_list(request.affect_hints),
     )
 
     path = Path(ledger_path).expanduser()
@@ -102,13 +111,36 @@ def capture_mnion(
     return record
 
 
+def _record_from_data(data: dict) -> MnionRecord:
+    """Read current mnion records and tolerate the first prototype's heavier shape."""
+    if "delta" in data:
+        return MnionRecord(**data)
+
+    hooks: list[str] = []
+    source_ref = str(data.get("source_ref", "")).strip()
+    if source_ref:
+        hooks.append(source_ref)
+
+    return MnionRecord(
+        id=str(data["id"]),
+        delta=str(data.get("stub", "")).strip(),
+        valence=0.0,
+        ttl_seconds=int(data.get("ttl_seconds", DEFAULT_TTL_SECONDS)),
+        captured_at=str(data["captured_at"]),
+        expires_at=str(data["expires_at"]),
+        hooks=hooks,
+        trigger=_clean_trigger(data.get("trigger")),
+        affect_hints=_clean_list(data.get("affect_hints")),
+    )
+
+
 def load_mnions(
     *,
     ledger_path: str | Path,
     now: datetime | None = None,
     include_expired: bool = False,
 ) -> list[MnionRecord]:
-    """Load mnion tags, hiding expired tags unless requested."""
+    """Load mnion deltas, hiding expired tags unless requested."""
     path = Path(ledger_path).expanduser()
     if not path.exists():
         return []
@@ -118,7 +150,7 @@ def load_mnions(
         if not line.strip():
             continue
         data = json.loads(line)
-        record = MnionRecord(**data)
+        record = _record_from_data(data)
         if not include_expired and _parse_ts(record.expires_at) <= current:
             continue
         records.append(record)

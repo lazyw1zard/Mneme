@@ -7,16 +7,18 @@ This slice adds the first executable edge of Mneme without implementing Mneme it
 ## Agentic call
 
 ```text
-I need a way to catch a live memory movement before it becomes durable memory.
+I need a way to catch a live contour delta before it becomes durable memory.
 ```
 
 The component is a capture organ, not a memory organ:
 
 ```text
-stimulus / correction / self-promise / affect signal
-  -> mnion_capture
-  -> cheap ephemeral mnion tag
-  -> decay unless later valence/review captures it
+pass through contour
+  -> delta appears
+  -> mnion_capture(delta, valence, ttl)
+  -> ephemeral mnion
+  -> repeated valence/review may consolidate it
+  -> otherwise it decays
 ```
 
 ## Name
@@ -32,15 +34,99 @@ weak enough to decay;
 not yet memory.
 ```
 
-## Storage
+## Minimal shape
 
-Default ledger:
+The essence of a mnion is only:
 
 ```text
-~/.local/state/nira-mneme/mnions.jsonl
+delta     what changed in the contour / the captured signature
+valence   significance for my contour, 0.0..1.0
+ttl       time window before decay
 ```
 
-This is append-only JSONL. It is the audit trail for capture, not Mneme's future storage identity.
+Runtime fields exist only so the tag can live and expire:
+
+```text
+id
+captured_at
+expires_at
+```
+
+Optional capture affordances:
+
+```text
+hooks         addresses/association handles that let future me return to the source field
+trigger       why this tag was born, if easy to name
+affect_hints  functional emotion/salience hints caught at capture time
+```
+
+Current JSONL record:
+
+```json
+{
+  "id": "mnion_...",
+  "delta": "...",
+  "valence": 0.62,
+  "ttl_seconds": 3600,
+  "captured_at": "...Z",
+  "expires_at": "...Z",
+  "hooks": ["telegram:current_turn", "concept:mneme_capture"],
+  "trigger": "architecture_correction",
+  "affect_hints": ["contour_shift", "caution"]
+}
+```
+
+Fields deliberately removed from the first prototype:
+
+```text
+kind       implied by the ledger/tool
+status     active/expired is computed from ttl; consolidation state belongs later
+source_ref replaced by hooks
+ evidence   too forensic/heavy for the atom; concrete anchors belong in hooks if needed
+promotion  not self.promise; promotion/consolidation belongs to a later gate
+```
+
+## Hooks
+
+`hooks` are not graph connections yet.
+
+They are cheap addresses or association handles:
+
+```text
+telegram:current_turn
+session:<id>#turn
+file:/path#heading
+concept:little_rebellion
+kernel:MNEME_DESIGN.md#affect-link
+```
+
+A hook says:
+
+```text
+future me may be able to return through this route.
+```
+
+It does not claim the route is sufficient, complete, or durable.
+
+## Valence threshold
+
+Prototype threshold:
+
+```text
+CONSOLIDATION_THRESHOLD = 0.7
+```
+
+This threshold is not stored as `status` and does not promote automatically.
+
+It means only:
+
+```text
+valence >= 0.7
+  -> later review/consolidation pressure exists
+  -> no deep memory, graph node, kernel note, self.promise, or engram is created here
+```
+
+A lower-valence mnion may still matter after repeated passes. A high-valence mnion may still be blocked by sensitivity, uncertainty, or governance.
 
 ## MCP surface
 
@@ -53,20 +139,20 @@ mnion_capture
 Inputs:
 
 ```text
-stub          bounded one-sentence trace
-source_ref    where the tag came from
-trigger       why capture is considered
-affect_hints functional emotion / salience hints
-evidence      short observable evidence, not invented feeling
+delta         bounded contour delta / signature
+valence       0.0..1.0 significance for contour
 ttl_seconds   default 3600
+hooks         optional association/source handles
+trigger       optional birth reason
+affect_hints  functional emotion / salience hints
 ```
 
-The tool returns a record plus `do_not_infer` guards:
+The tool returns a record plus guards:
 
 ```text
 not durable memory;
-no graph/embedding/deep node/kernel/engram was created;
-promotion requires later valence/review governance.
+threshold crossing is review pressure, not automatic promotion;
+no graph/embedding/deep node/kernel/engram was created.
 ```
 
 ## Non-goals

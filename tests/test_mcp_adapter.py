@@ -15,37 +15,52 @@ def test_mcp_server_exposes_single_capture_affordance(tmp_path):
 
     assert [tool.name for tool in tools] == ["mnion_capture"]
     description = tools[0].description.lower()
-    assert "ephemeral" in description
+    assert "delta" in description
+    assert "valence" in description
     assert "affect" in description
+    assert "ttl" in description
     assert "decay" in description
     schema = tools[0].inputSchema
-    assert "stub" in schema["properties"]
+    assert "delta" in schema["properties"]
+    assert "valence" in schema["properties"]
+    assert "hooks" in schema["properties"]
     assert "affect_hints" in schema["properties"]
-    assert "graph" not in json.dumps(schema).lower()
-    assert "embedding" not in json.dumps(schema).lower()
+    forbidden = json.dumps(schema).lower()
+    assert "kind" not in forbidden
+    assert "status" not in forbidden
+    assert "source_ref" not in forbidden
+    assert "evidence" not in forbidden
+    assert "promotion" not in forbidden
+    assert "graph" not in forbidden
+    assert "embedding" not in forbidden
 
 
-def test_mcp_capture_tool_appends_mnion(tmp_path):
+def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
     ledger = tmp_path / "mnions.jsonl"
     server = create_server(ledger_path=ledger)
 
     result = run(server.call_tool("mnion_capture", {
-        "stub": "Synaptic tagging gives Mneme a cheap capture-first model.",
-        "source_ref": "telegram:current_turn",
+        "delta": "Synaptic tagging gives Mneme a cheap capture-first model.",
+        "valence": 0.76,
+        "ttl_seconds": 3600,
+        "hooks": ["telegram:current_turn"],
         "trigger": "theory_import",
         "affect_hints": ["curiosity", "contour_shift"],
-        "evidence": ["тег живёт около часа"],
-        "ttl_seconds": 3600,
     }))
 
     content_blocks, structured = result
 
     assert structured["ok"] is True
     assert structured["record"]["id"].startswith("mnion_")
-    assert structured["record"]["status"] == "tag"
-    assert structured["record"]["promotion"] is None
+    assert structured["record"]["delta"] == "Synaptic tagging gives Mneme a cheap capture-first model."
+    assert structured["record"]["valence"] == 0.76
+    assert structured["record"]["hooks"] == ["telegram:current_turn"]
+    assert structured["record"]["affect_hints"] == ["curiosity", "contour_shift"]
+    assert structured["valence_crosses_threshold"] is True
     assert content_blocks[0].type == "text"
     assert ledger.exists()
     raw = json.loads(ledger.read_text(encoding="utf-8").strip())
-    assert raw["stub"] == "Synaptic tagging gives Mneme a cheap capture-first model."
-    assert raw["affect_hints"] == ["curiosity", "contour_shift"]
+    assert raw["delta"] == "Synaptic tagging gives Mneme a cheap capture-first model."
+    assert raw["valence"] == 0.76
+    assert "status" not in raw
+    assert "promotion" not in raw
