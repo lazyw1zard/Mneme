@@ -1,6 +1,6 @@
 # Cogito Cycle Spine
 
-Status: implemented prototype, not live-wired
+Status: implemented spike, parked from the active mnion path
 
 This slice adds a runtime-neutral way to count my model/generation cycles without making Mneme depend on Hermes.
 

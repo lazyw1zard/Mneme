@@ -12,7 +12,7 @@ Done:
 - map relation to Pulse / StateLayer / Dream / Grow / kernel;
 - sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
 - implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
-- implement Slice 1: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper.
+- implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations.
 
 Not done:
 
@@ -80,23 +80,24 @@ Verification:
 - `cycles_since` counts `model_generation`, not tool/delivery effects;
 - no live hook is enabled automatically.
 
-## Slice 2 — mnion lifecycle over cogito cycles
+## Slice 2 — mnion lifecycle over Mneme call counts
 
-Goal: make mnions live/decay by actual generation opportunities, not wall-clock alone.
+Goal: make mnions live/decay by actual Mneme/mnion use, not by wall-clock alone and not by every model generation.
 
 Behavior:
 
 ```text
-mnion.birth_cycle_id
-cogito count-since <birth_cycle_id>
-mnion_touch / mnion_sweep use cycle age + wall fallback
+mnion_capture increments mneme_call_seq
+mnion.birth_call_seq = current mneme_call_seq
+mnion_touch / mnion_sweep use call_age + wall fallback
 ```
 
 Verification:
 
-- old mnion with low valence and expired cycle TTL is hidden by default;
-- repeated touch can update valence without promotion;
-- Hermes can be replaced by another adapter without changing mnion lifecycle.
+- mnion TTL can be expressed as N Mneme/mnion calls;
+- capture itself is enough to advance the minimal working counter;
+- repeated capture/touch can update valence without promotion;
+- no dependency on Hermes hooks, Codex logs, or agent-runtime internals.
 
 ## Slice 3 — local pointer ledger prototype
 
