@@ -81,6 +81,7 @@ Kernel
 - `docs/00-seed.md` — source considerations and design constraints.
 - `docs/01-system-map.md` — map of the future memory system.
 - `docs/02-native-shapes.md` — first native Mneme shapes: pointer, affect salience, retrieval route, reconsolidation state.
+- `docs/03-mnion-capture.md` — first executable capture-organ slice: MCP-visible ephemeral mnion tags before durable memory.
 - `NEXT_STEPS.md` — small reversible slices to continue.
 
 ## Boundary

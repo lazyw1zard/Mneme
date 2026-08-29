@@ -10,7 +10,8 @@ Done:
 
 - preserve semantic nucleus;
 - map relation to Pulse / StateLayer / Dream / Grow / kernel;
-- sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt.
+- sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
+- implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool.
 
 Not done:
 
@@ -20,6 +21,31 @@ Not done:
 - no auto-ingestion;
 - no kernel mutation;
 - no automatic memory capture.
+
+## Slice 0 — mnion capture organ prototype
+
+Goal: prove that I can capture a live movement as a cheap, ephemeral tag before building Mneme.
+
+Behavior:
+
+```text
+mnion_capture(stub, source_ref, trigger, affect_hints, evidence, ttl_seconds)
+  -> append one JSONL mnion tag
+  -> no graph, embedding, pointer, deep memory, kernel write, or engram
+```
+
+Storage is a local append-only audit ledger:
+
+```text
+~/.local/state/nira-mneme/mnions.jsonl
+```
+
+Verification:
+
+- capture writes one bounded tag;
+- expired tags are hidden by default;
+- MCP surface exposes exactly one capture affordance;
+- no Hermes runtime config is changed automatically.
 
 ## Slice 1 — local pointer ledger prototype
 
