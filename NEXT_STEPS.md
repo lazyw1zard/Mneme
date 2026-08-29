@@ -11,7 +11,8 @@ Done:
 - preserve semantic nucleus;
 - map relation to Pulse / StateLayer / Dream / Grow / kernel;
 - sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
-- implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool.
+- implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
+- implement Slice 1: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper.
 
 Not done:
 
@@ -47,7 +48,57 @@ Verification:
 - MCP surface exposes exactly one capture affordance;
 - no Hermes runtime config is changed automatically.
 
-## Slice 1 — local pointer ledger prototype
+## Slice 1 — cogito cycle spine prototype
+
+Goal: count actual model/generation opportunities without making Mneme depend on Hermes.
+
+Behavior:
+
+```text
+runtime adapter
+  -> CogitoEvent(runtime, adapter, movement_kind, cycle_kind, session_ref, turn_ref, model, counts)
+  -> append one JSONL cycle
+```
+
+Convenience surfaces:
+
+```text
+python3 -m cogito.cli record/latest/count-since
+scripts/cogito_hermes_hook.py  # shell-hook wrapper, no PYTHONPATH needed
+```
+
+Storage:
+
+```text
+~/.local/state/nira-mneme/cogito_cycles.jsonl
+```
+
+Verification:
+
+- neutral core has no Hermes imports;
+- Hermes `post_api_request` payload maps through adapter only;
+- `cycles_since` counts `model_generation`, not tool/delivery effects;
+- no live hook is enabled automatically.
+
+## Slice 2 — mnion lifecycle over cogito cycles
+
+Goal: make mnions live/decay by actual generation opportunities, not wall-clock alone.
+
+Behavior:
+
+```text
+mnion.birth_cycle_id
+cogito count-since <birth_cycle_id>
+mnion_touch / mnion_sweep use cycle age + wall fallback
+```
+
+Verification:
+
+- old mnion with low valence and expired cycle TTL is hidden by default;
+- repeated touch can update valence without promotion;
+- Hermes can be replaced by another adapter without changing mnion lifecycle.
+
+## Slice 3 — local pointer ledger prototype
 
 Goal: prove that a memory pointer can exist without loaded content.
 
@@ -68,7 +119,7 @@ Verification:
 - show pointer;
 - confirm no retrieval/content ingestion happens automatically.
 
-## Slice 2 — retrieval attempt updates route
+## Slice 4 — retrieval attempt updates route
 
 Goal: prove failed recall updates pointer state instead of deleting or denying memory.
 
@@ -91,7 +142,7 @@ Verification:
 - see `last_attempt.status=failed` and route note updated;
 - pointer still exists with confidence separated from route success.
 
-## Slice 3 — context brief instead of archive flood
+## Slice 5 — context brief instead of archive flood
 
 Goal: prove Mneme can assemble a small brief from pointer/source handles.
 
@@ -116,7 +167,7 @@ Verification:
 - brief cites files/handles;
 - brief does not claim more than source supports.
 
-## Slice 4 — affect salience routing
+## Slice 6 — affect salience routing
 
 Goal: show affect changes routing without becoming fake emotion text.
 
@@ -139,7 +190,7 @@ Verification:
 - high risk suggests `protect` or `ask`, not auto-write;
 - low salience keeps cold pointer.
 
-## Slice 5 — contour receipt bridge
+## Slice 7 — contour receipt bridge
 
 Goal: connect Mneme output back to StateLayer/Pulse without flattening organs.
 

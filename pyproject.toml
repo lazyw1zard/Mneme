@@ -7,6 +7,8 @@ dependencies = ["mcp>=1.0"]
 
 [project.scripts]
 mnion-mcp = "mnion.mcp_server:main"
+cogito = "cogito.cli:main"
+cogito-hermes-hook = "cogito.hermes_hook:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
