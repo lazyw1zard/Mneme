@@ -163,7 +163,7 @@ no graph/embedding/deep node/kernel/engram was created.
 - no Dream queue;
 - no kernel or Hermes memory write;
 - no daemon beyond stdio MCP server when explicitly configured;
-- no Hermes config wiring in this slice.
+- no Hermes config wiring in the initial implementation slice; live attachment is a separate explicit runtime step recorded below.
 
 ## Test command
 
@@ -184,4 +184,28 @@ mcp_servers:
       PYTHONPATH: "/home/nira/projects/nira-mneme/src"
 ```
 
-Do not apply this automatically. MCP visibility is a feature, but attaching it to the live runtime is a separate governance step.
+Runtime attachment was explicitly approved and applied on 2026-08-29 for the default Hermes profile:
+
+```yaml
+mcp_servers:
+  mnion:
+    command: python3
+    args: ["-m", "mnion.mcp_server"]
+    env:
+      PYTHONPATH: "/home/nira/projects/nira-mneme/src"
+    enabled: true
+```
+
+E2E receipt:
+
+```text
+hermes mcp test mnion
+  -> Connected; tools discovered: 1
+
+fresh hermes chat one-shot
+  -> model called mcp_mnion
+  -> ledger line appended
+  -> created mnion_ed2ba5aa1e6c4053b38cda47e53bcde7
+```
+
+Attaching it to the live runtime makes the capture affordance prompt-visible in fresh/reloaded sessions. Further runtime visibility changes should use `/reload-mcp` or a fresh session; full gateway restart is not always required.
