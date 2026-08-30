@@ -43,7 +43,7 @@ def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):
     assert record.valence == 0.62
     assert record.ttl_seconds == 3600
     assert record.birth_call_seq == 1
-    assert record.call_ttl == 20
+    assert record.call_ttl == 32
     assert record.hooks == ["telegram:current_turn", "concept:mneme_capture"]
     assert record.trigger == "architecture_correction"
     assert record.affect_hints == ["contour_shift", "caution"]

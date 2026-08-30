@@ -82,7 +82,8 @@ Kernel
 - `docs/01-system-map.md` — map of the future memory system.
 - `docs/02-native-shapes.md` — first native Mneme shapes: pointer, affect salience, retrieval route, reconsolidation state.
 - `docs/03-mnion-capture.md` — first executable capture-organ slice: MCP-visible ephemeral mnion tags before durable memory.
-- `docs/04-cogito-cycles.md` — runtime-neutral generation-cycle spine for mnion lifecycle; Hermes is only the first adapter.
+- `docs/04-cogito-cycles.md` — runtime-neutral generation-cycle spine; parked from the active mnion lifecycle path.
+- `docs/05-mnion-options-and-optimizations.md` — living shelf for tuning choices: TTL, active limits, config candidates, archive/index options.
 - `NEXT_STEPS.md` — small reversible slices to continue.
 
 ## Boundary

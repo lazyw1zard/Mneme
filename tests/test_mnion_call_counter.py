@@ -29,6 +29,7 @@ def test_capture_increments_mneme_call_counter_and_records_birth_seq(tmp_path):
 
     assert first.birth_call_seq == 1
     assert second.birth_call_seq == 2
+    assert DEFAULT_CALL_TTL == 32
     assert first.call_ttl == DEFAULT_CALL_TTL
     assert second.call_ttl == DEFAULT_CALL_TTL
     assert current_mneme_call_seq(state_path=state) == 2

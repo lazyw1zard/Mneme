@@ -71,7 +71,7 @@ Current JSONL record:
   "delta": "...",
   "valence": 0.62,
   "ttl_seconds": 604800,
-  "call_ttl": 20,
+  "call_ttl": 32,
   "birth_call_seq": 1,
   "captured_at": "...Z",
   "expires_at": "...Z",
@@ -104,14 +104,14 @@ Current use:
 mnion_capture
   -> seq += 1
   -> record.birth_call_seq = seq
-  -> record.call_ttl = default 20 unless overridden
+  -> record.call_ttl = default 32 unless overridden
 ```
 
 `ttl_seconds` stays as a coarse safety cap, not the main lifecycle axis. Default is intentionally long for an agentic memory tag:
 
 ```text
 DEFAULT_TTL_SECONDS = 604800  # 7 days
-DEFAULT_CALL_TTL = 20         # 20 Mneme/mnion calls
+DEFAULT_CALL_TTL = 32         # 32 Mneme/mnion calls
 ```
 
 The wall cap prevents forgotten files from staying active forever if the organ is not called for a long time. The call TTL carries the actual memory-pass semantics.
@@ -201,7 +201,7 @@ Inputs:
 delta         bounded contour delta / signature
 valence       0.0..1.0 significance for contour
 ttl_seconds   wall-clock fallback TTL, default 604800 / 7 days
-call_ttl      Mneme/mnion-call TTL, default 20
+call_ttl      Mneme/mnion-call TTL, default 32
 hooks         optional association/source handles
 trigger       optional birth reason
 affect_hints  functional emotion / salience hints
