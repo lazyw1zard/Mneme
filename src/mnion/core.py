@@ -7,8 +7,9 @@ import json
 import uuid
 
 
-DEFAULT_TTL_SECONDS = 3600
+DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60
 DEFAULT_CALL_TTL = 20
+DEFAULT_ACTIVE_MNION_LIMIT = 20
 MAX_DELTA_CHARS = 280
 CONSOLIDATION_THRESHOLD = 0.7
 
@@ -195,8 +196,11 @@ def load_mnions(
     state_path: str | Path | None = None,
     now: datetime | None = None,
     include_expired: bool = False,
+    limit: int | None = DEFAULT_ACTIVE_MNION_LIMIT,
 ) -> list[MnionRecord]:
-    """Load mnion deltas, hiding wall- or call-expired tags unless requested."""
+    """Load bounded mnion deltas, hiding wall- or call-expired tags unless requested."""
+    if limit is not None and limit <= 0:
+        raise ValueError("limit must be positive or None")
     path = Path(ledger_path).expanduser()
     if not path.exists():
         return []
@@ -213,4 +217,6 @@ def load_mnions(
         if not include_expired and (wall_expired or call_expired):
             continue
         records.append(record)
-    return records
+    if limit is None:
+        return records
+    return records[-limit:]

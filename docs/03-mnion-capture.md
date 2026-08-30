@@ -70,7 +70,7 @@ Current JSONL record:
   "id": "mnion_...",
   "delta": "...",
   "valence": 0.62,
-  "ttl_seconds": 3600,
+  "ttl_seconds": 604800,
   "call_ttl": 20,
   "birth_call_seq": 1,
   "captured_at": "...Z",
@@ -107,6 +107,15 @@ mnion_capture
   -> record.call_ttl = default 20 unless overridden
 ```
 
+`ttl_seconds` stays as a coarse safety cap, not the main lifecycle axis. Default is intentionally long for an agentic memory tag:
+
+```text
+DEFAULT_TTL_SECONDS = 604800  # 7 days
+DEFAULT_CALL_TTL = 20         # 20 Mneme/mnion calls
+```
+
+The wall cap prevents forgotten files from staying active forever if the organ is not called for a long time. The call TTL carries the actual memory-pass semantics.
+
 `load_mnions(..., state_path=...)` hides a mnion by default when either:
 
 ```text
@@ -115,7 +124,16 @@ or
 current_seq - birth_call_seq >= call_ttl
 ```
 
-`include_expired=True` still shows it for audit.
+`include_expired=True` still shows it for audit. Active reads are bounded by default:
+
+```text
+DEFAULT_ACTIVE_MNION_LIMIT = 20
+load_mnions(...)              # newest 20 active mnions, chronological within the selected window
+load_mnions(limit=None)       # explicit full scan/result
+load_mnions(include_expired=True, limit=None)  # explicit audit mode
+```
+
+This keeps hidden/expired mnions out of normal prompt-facing paths. Future recall/brief tools should return compact summaries over this bounded active set, not dump the raw ledger.
 
 Fields deliberately removed from the first prototype:
 
@@ -182,7 +200,7 @@ Inputs:
 ```text
 delta         bounded contour delta / signature
 valence       0.0..1.0 significance for contour
-ttl_seconds   wall-clock fallback TTL, default 3600
+ttl_seconds   wall-clock fallback TTL, default 604800 / 7 days
 call_ttl      Mneme/mnion-call TTL, default 20
 hooks         optional association/source handles
 trigger       optional birth reason

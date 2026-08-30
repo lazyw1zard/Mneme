@@ -3,11 +3,26 @@ from datetime import datetime, timezone
 
 from mnion.core import (
     CONSOLIDATION_THRESHOLD,
+    DEFAULT_TTL_SECONDS,
     MnionCaptureRequest,
     capture_mnion,
     load_mnions,
     valence_crosses_threshold,
 )
+
+
+def test_default_wall_ttl_is_seven_day_safety_cap_not_one_hour(tmp_path):
+    ledger = tmp_path / "mnions.jsonl"
+
+    record = capture_mnion(
+        MnionCaptureRequest(delta="default wall ttl should not kill the tag in one hour", valence=0.5),
+        ledger_path=ledger,
+        now=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert DEFAULT_TTL_SECONDS == 7 * 24 * 60 * 60
+    assert record.ttl_seconds == DEFAULT_TTL_SECONDS
+    assert record.expires_at == "2026-01-08T00:00:00Z"
 
 
 def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):

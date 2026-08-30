@@ -48,7 +48,8 @@ The counter advances only when the Mneme/mnion organ is called. It does not coun
 Verification:
 
 - capture writes one bounded tag;
-- expired tags are hidden by default;
+- active reads are bounded by default (`DEFAULT_ACTIVE_MNION_LIMIT = 20`);
+- expired tags are hidden unless explicitly requested with audit flags;
 - MCP surface exposes exactly one capture affordance;
 - no Hermes runtime config is changed automatically.
 

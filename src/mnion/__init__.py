@@ -2,6 +2,7 @@
 
 from .core import (
     CONSOLIDATION_THRESHOLD,
+    DEFAULT_ACTIVE_MNION_LIMIT,
     DEFAULT_CALL_TTL,
     DEFAULT_TTL_SECONDS,
     MnionCaptureRequest,
@@ -17,6 +18,7 @@ from .core import (
 
 __all__ = [
     "CONSOLIDATION_THRESHOLD",
+    "DEFAULT_ACTIVE_MNION_LIMIT",
     "DEFAULT_CALL_TTL",
     "DEFAULT_TTL_SECONDS",
     "MnionCaptureRequest",

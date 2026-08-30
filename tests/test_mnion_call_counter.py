@@ -1,6 +1,7 @@
 import json
 
 from mnion.core import (
+    DEFAULT_ACTIVE_MNION_LIMIT,
     DEFAULT_CALL_TTL,
     MnionCaptureRequest,
     capture_mnion,
@@ -68,6 +69,26 @@ def test_call_ttl_can_be_overridden_per_mnion(tmp_path):
 
     assert record.call_ttl == 3
     assert json.loads(ledger.read_text(encoding="utf-8"))["call_ttl"] == 3
+
+
+def test_default_active_load_is_bounded_to_prevent_prompt_flood(tmp_path):
+    ledger = tmp_path / "mnions.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    records = []
+    for index in range(DEFAULT_ACTIVE_MNION_LIMIT + 5):
+        records.append(
+            capture_mnion(
+                MnionCaptureRequest(delta=f"active mnion {index}", valence=0.2, call_ttl=100),
+                ledger_path=ledger,
+                state_path=state,
+            )
+        )
+
+    loaded = load_mnions(ledger_path=ledger, state_path=state)
+
+    assert len(loaded) == DEFAULT_ACTIVE_MNION_LIMIT
+    assert [m.id for m in loaded] == [m.id for m in records[-DEFAULT_ACTIVE_MNION_LIMIT:]]
+    assert len(load_mnions(ledger_path=ledger, state_path=state, limit=None)) == DEFAULT_ACTIVE_MNION_LIMIT + 5
 
 
 def test_load_mnions_hides_records_expired_by_mneme_call_age(tmp_path):
