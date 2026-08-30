@@ -27,6 +27,8 @@ def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):
     assert record.delta == request.delta
     assert record.valence == 0.62
     assert record.ttl_seconds == 3600
+    assert record.birth_call_seq == 1
+    assert record.call_ttl == 20
     assert record.hooks == ["telegram:current_turn", "concept:mneme_capture"]
     assert record.trigger == "architecture_correction"
     assert record.affect_hints == ["contour_shift", "caution"]
@@ -42,6 +44,8 @@ def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):
         "delta",
         "valence",
         "ttl_seconds",
+        "call_ttl",
+        "birth_call_seq",
         "captured_at",
         "expires_at",
         "hooks",
@@ -78,6 +82,14 @@ def test_capture_requires_bounded_delta_and_normalized_valence(tmp_path):
         assert "valence" in str(exc)
     else:
         raise AssertionError("expected out-of-range valence to be rejected")
+
+    request = MnionCaptureRequest(delta="short", valence=0.5, call_ttl=0)
+    try:
+        capture_mnion(request, ledger_path=ledger)
+    except ValueError as exc:
+        assert "call_ttl" in str(exc)
+    else:
+        raise AssertionError("expected non-positive call_ttl to be rejected")
 
     assert not ledger.exists()
 

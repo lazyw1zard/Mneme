@@ -12,7 +12,8 @@ Done:
 - map relation to Pulse / StateLayer / Dream / Grow / kernel;
 - sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
 - implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
-- implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations.
+- implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations;
+- implement Slice 2: `mnion_capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay.
 
 Not done:
 
@@ -30,16 +31,19 @@ Goal: prove that I can capture a live movement as a cheap, ephemeral tag before 
 Behavior:
 
 ```text
-mnion_capture(delta, valence, ttl_seconds, hooks, trigger, affect_hints)
+mnion_capture(delta, valence, ttl_seconds, call_ttl, hooks, trigger, affect_hints)
   -> append one JSONL mnion tag
   -> no graph, embedding, pointer, deep memory, kernel write, or engram
 ```
 
-Storage is a local append-only audit ledger:
+Storage is a local append-only audit ledger plus one portable call counter:
 
 ```text
 ~/.local/state/nira-mneme/mnions.jsonl
+~/.local/state/nira-mneme/mneme_seq.json  # {"seq": N}
 ```
+
+The counter advances only when the Mneme/mnion organ is called. It does not count every Hermes turn, model generation, Telegram delivery, tool execution, or Codex run.
 
 Verification:
 

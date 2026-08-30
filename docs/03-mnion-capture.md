@@ -15,10 +15,11 @@ The component is a capture organ, not a memory organ:
 ```text
 pass through contour
   -> delta appears
-  -> mnion_capture(delta, valence, ttl)
-  -> ephemeral mnion
+  -> mnion_capture(delta, valence, wall_ttl, call_ttl)
+  -> mneme_call_seq increments
+  -> ephemeral mnion gets birth_call_seq
   -> repeated valence/review may consolidate it
-  -> otherwise it decays
+  -> otherwise it decays by wall time or Mneme-call age
 ```
 
 ## Name
@@ -41,13 +42,15 @@ The essence of a mnion is only:
 ```text
 delta     what changed in the contour / the captured signature
 valence   significance for my contour, 0.0..1.0
-ttl       time window before decay
+ttl       wall fallback + Mneme/mnion call window before decay
 ```
 
 Runtime fields exist only so the tag can live and expire:
 
 ```text
 id
+birth_call_seq
+call_ttl
 captured_at
 expires_at
 ```
@@ -68,6 +71,8 @@ Current JSONL record:
   "delta": "...",
   "valence": 0.62,
   "ttl_seconds": 3600,
+  "call_ttl": 20,
+  "birth_call_seq": 1,
   "captured_at": "...Z",
   "expires_at": "...Z",
   "hooks": ["telegram:current_turn", "concept:mneme_capture"],
@@ -75,6 +80,42 @@ Current JSONL record:
   "affect_hints": ["contour_shift", "caution"]
 }
 ```
+
+## Storage and call counter
+
+Runtime storage is still plain local files:
+
+```text
+~/.local/state/nira-mneme/mnions.jsonl
+~/.local/state/nira-mneme/mneme_seq.json
+```
+
+`mneme_seq.json` is deliberately tiny:
+
+```json
+{"seq": 42}
+```
+
+Only Mneme/mnion organ calls increment it. This is not a Hermes/Codex/runtime generation counter.
+
+Current use:
+
+```text
+mnion_capture
+  -> seq += 1
+  -> record.birth_call_seq = seq
+  -> record.call_ttl = default 20 unless overridden
+```
+
+`load_mnions(..., state_path=...)` hides a mnion by default when either:
+
+```text
+wall-clock expires_at passed
+or
+current_seq - birth_call_seq >= call_ttl
+```
+
+`include_expired=True` still shows it for audit.
 
 Fields deliberately removed from the first prototype:
 
@@ -141,7 +182,8 @@ Inputs:
 ```text
 delta         bounded contour delta / signature
 valence       0.0..1.0 significance for contour
-ttl_seconds   default 3600
+ttl_seconds   wall-clock fallback TTL, default 3600
+call_ttl      Mneme/mnion-call TTL, default 20
 hooks         optional association/source handles
 trigger       optional birth reason
 affect_hints  functional emotion / salience hints
@@ -151,6 +193,7 @@ The tool returns a record plus guards:
 
 ```text
 not durable memory;
+this counter counts Mneme/mnion calls, not every agent/runtime/model generation;
 threshold crossing is review pressure, not automatic promotion;
 no graph/embedding/deep node/kernel/engram was created.
 ```
@@ -168,7 +211,7 @@ no graph/embedding/deep node/kernel/engram was created.
 ## Test command
 
 ```bash
-python3 -m pytest tests/test_mnion_capture.py tests/test_mcp_adapter.py -q
+python3 -m pytest tests/test_mnion_capture.py tests/test_mnion_call_counter.py tests/test_mcp_adapter.py -q
 ```
 
 ## Future wiring
@@ -206,6 +249,21 @@ fresh hermes chat one-shot
   -> model called mcp_mnion
   -> ledger line appended
   -> created mnion_ed2ba5aa1e6c4053b38cda47e53bcde7
+```
+
+Call-counter E2E receipt after `birth_call_seq`/`call_ttl` implementation:
+
+```text
+direct FastMCP smoke
+  -> before_lines=3 after_lines=4 before_seq=0 after_seq=1
+  -> created mnion_e9b1519a727e4483a81cbf3856ae54e7
+  -> birth_call_seq=1 call_ttl=20 mneme_call_seq=1
+
+fresh hermes chat one-shot
+  -> model called mcp_mnion
+  -> before_lines=4 after_lines=5 before_seq=1 after_seq=2
+  -> created mnion_066b5531d2b64f8daeebe82c032c0613
+  -> birth_call_seq=2 call_ttl=20 mneme_call_seq=2
 ```
 
 Attaching it to the live runtime makes the capture affordance prompt-visible in fresh/reloaded sessions. Further runtime visibility changes should use `/reload-mcp` or a fresh session; full gateway restart is not always required.

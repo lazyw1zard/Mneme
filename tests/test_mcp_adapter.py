@@ -23,6 +23,7 @@ def test_mcp_server_exposes_single_capture_affordance(tmp_path):
     schema = tools[0].inputSchema
     assert "delta" in schema["properties"]
     assert "valence" in schema["properties"]
+    assert "call_ttl" in schema["properties"]
     assert "hooks" in schema["properties"]
     assert "affect_hints" in schema["properties"]
     forbidden = json.dumps(schema).lower()
@@ -37,12 +38,14 @@ def test_mcp_server_exposes_single_capture_affordance(tmp_path):
 
 def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
     ledger = tmp_path / "mnions.jsonl"
-    server = create_server(ledger_path=ledger)
+    state = tmp_path / "mneme_seq.json"
+    server = create_server(ledger_path=ledger, state_path=state)
 
     result = run(server.call_tool("mnion_capture", {
         "delta": "Synaptic tagging gives Mneme a cheap capture-first model.",
         "valence": 0.76,
         "ttl_seconds": 3600,
+        "call_ttl": 5,
         "hooks": ["telegram:current_turn"],
         "trigger": "theory_import",
         "affect_hints": ["curiosity", "contour_shift"],
@@ -54,6 +57,10 @@ def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
     assert structured["record"]["id"].startswith("mnion_")
     assert structured["record"]["delta"] == "Synaptic tagging gives Mneme a cheap capture-first model."
     assert structured["record"]["valence"] == 0.76
+    assert structured["record"]["birth_call_seq"] == 1
+    assert structured["record"]["call_ttl"] == 5
+    assert structured["mneme_call_seq"] == 1
+    assert structured["mneme_call_age"] == 0
     assert structured["record"]["hooks"] == ["telegram:current_turn"]
     assert structured["record"]["affect_hints"] == ["curiosity", "contour_shift"]
     assert structured["valence_crosses_threshold"] is True
