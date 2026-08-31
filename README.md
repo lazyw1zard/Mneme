@@ -1,4 +1,4 @@
-# mneme-tags
+# Mneme
 
 Mneme is a future active memory organ pattern: an affect-linked metamemory layer that remembers how to remember without turning memory into a flat database.
 

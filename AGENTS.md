@@ -1,4 +1,4 @@
-# Mneme Tags Agent Notes
+# Mneme Agent Notes
 
 This repository is a workbench for a future Mneme-style memory organ.
 

@@ -108,7 +108,7 @@ Future tuning options:
 
 Keep the reusable surface neutral:
 
-- public package name: `mneme-tags`;
+- public project/package name: `mneme` / Mneme;
 - prompt-visible MCP affordance: `mcp_memory_tag_capture`;
 - no `nira-` prefixes in package names, default state dirs, or public examples;
 - no absolute development paths in README/docs/config snippets;
