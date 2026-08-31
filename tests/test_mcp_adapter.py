@@ -52,6 +52,8 @@ def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
 
     content_blocks, structured = result
     assert structured["ok"] is True
+    assert structured["action"] == "created"
+    assert structured["target_id"] == structured["record"]["id"]
     assert structured["record"]["id"].startswith("mnion_")
     assert structured["record"]["delta"] == "Synaptic tagging gives Mneme a cheap capture-first model."
     assert structured["record"]["valence"] == 0.76

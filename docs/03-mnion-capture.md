@@ -107,8 +107,10 @@ Current use:
 ```text
 memory_tag.capture
   -> seq += 1
-  -> record.birth_call_seq = seq
-  -> record.call_ttl = default 32 unless overridden
+  -> compare candidate against newest active tags
+  -> created: append mnion record with birth_call_seq/call_ttl
+  -> reinforced: append reinforcement event, no duplicate mnion
+  -> linked_new: append mnion record plus a small link event
 ```
 
 `ttl_seconds` stays as a coarse safety cap, not the main lifecycle axis. Default is intentionally long for an agentic memory tag:
@@ -148,6 +150,66 @@ source_ref replaced by hooks
  evidence   too forensic/heavy for the atom; concrete anchors belong in hooks if needed
 promotion  not self.promise; promotion/consolidation belongs to a later gate
 ```
+
+## Pre-capture filter
+
+`memory_tag.capture` now performs a conservative bounded scan before appending a new tag.
+
+Outcomes:
+
+```text
+created      no active match; append a new mnion record
+reinforced   strong same-pattern match; append a reinforcement event, no duplicate mnion
+linked_new   related but distinct; append a new mnion record plus a small link event
+```
+
+Comparison fields:
+
+```text
+hooks         primary signal; normalized token overlap
+trigger       secondary birth-reason overlap
+delta         supporting semantic token overlap, bounded by MAX_DELTA_CHARS=280
+affect_hints  tie-breaker for contour/salience family
+recency       tiny bonus inside the active window
+valence       not similarity; only reinforcement strength
+```
+
+Implemented thresholds:
+
+```text
+REINFORCE_THRESHOLD = 0.67
+LINK_THRESHOLD = 0.34
+```
+
+The filter reads only the normal bounded active window (`DEFAULT_ACTIVE_MNION_LIMIT = 20`) and uses lexical/signature overlap only: no embeddings, no model call, no vector store, no graph database.
+
+Reinforcement is append-only and refreshes call-life for active loading:
+
+```json
+{
+  "event": "reinforcement",
+  "action": "reinforced",
+  "target_id": "mnion_...",
+  "match_score": 0.72,
+  "valence_before": 0.6,
+  "candidate_valence": 0.5,
+  "valence_after": 0.65
+}
+```
+
+Linked-new is also append-only:
+
+```json
+{
+  "event": "link",
+  "action": "linked_new",
+  "source_id": "mnion_new",
+  "target_ids": ["mnion_related"],
+  "match_score": 0.34
+}
+```
+
+The link event is not a deep memory graph. It is only an audit hint for later consolidation/review.
 
 ## Hooks
 
@@ -211,13 +273,13 @@ trigger       optional birth reason
 affect_hints  functional emotion / salience hints
 ```
 
-The tool returns a record plus guards:
+The tool returns an action/result plus guards:
 
 ```text
 not durable memory;
 this counter counts Mneme/mnion calls, not every agent/runtime/model generation;
 threshold crossing is review pressure, not automatic promotion;
-no graph/embedding/deep node/kernel/engram was created.
+no embedding/deep node/kernel/engram was created.
 ```
 
 ## Non-goals
@@ -233,7 +295,7 @@ no graph/embedding/deep node/kernel/engram was created.
 ## Test command
 
 ```bash
-python3 -m pytest tests/test_mnion_capture.py tests/test_mnion_call_counter.py tests/test_mcp_adapter.py -q
+python3 -m pytest tests/test_mnion_capture.py tests/test_mnion_call_counter.py tests/test_mcp_adapter.py tests/test_pre_capture_filter.py -q
 ```
 
 ## Future wiring

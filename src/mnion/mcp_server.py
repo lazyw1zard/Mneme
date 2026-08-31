@@ -12,7 +12,7 @@ from .core import (
     DEFAULT_CALL_TTL,
     DEFAULT_TTL_SECONDS,
     MnionCaptureRequest,
-    capture_mnion,
+    capture_memory_tag,
     current_mneme_call_seq,
     mneme_call_age,
     valence_crosses_threshold,
@@ -77,20 +77,33 @@ def create_server(
             trigger=trigger,
             affect_hints=affect_hints,
         )
-        record = capture_mnion(request, ledger_path=ledger, state_path=state)
-        crosses = valence_crosses_threshold(record.valence)
+        result = capture_memory_tag(request, ledger_path=ledger, state_path=state)
+        record_payload = asdict(result.record) if result.record is not None else None
+        crosses = valence_crosses_threshold(result.valence_after)
         return {
             "ok": True,
-            "record": asdict(record),
+            "action": result.action,
+            "target_id": result.target_id,
+            "record": record_payload,
+            "linked_ids": result.linked_ids,
+            "match_score": result.match_score,
+            "reason": result.reason,
+            "valence_before": result.valence_before,
+            "valence_after": result.valence_after,
+            "event": result.event,
             "mneme_call_seq": current_mneme_call_seq(state_path=state),
-            "mneme_call_age": mneme_call_age(birth_call_seq=record.birth_call_seq, state_path=state),
+            "mneme_call_age": (
+                mneme_call_age(birth_call_seq=result.record.birth_call_seq, state_path=state)
+                if result.record is not None
+                else 0
+            ),
             "valence_crosses_threshold": crosses,
             "threshold": CONSOLIDATION_THRESHOLD,
             "do_not_infer": [
                 "This is not durable memory.",
                 "This counter counts memory-tag/Mneme calls, not every agent/runtime/model generation.",
                 "Threshold crossing is review pressure, not automatic promotion.",
-                "No graph edges, embeddings, deep-memory nodes, kernel notes, or engrams were created.",
+                "No embeddings, deep-memory nodes, kernel notes, or engrams were created.",
             ],
         }
 

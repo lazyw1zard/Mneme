@@ -14,7 +14,8 @@ Done:
 - implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
 - implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations;
 - implement Slice 2: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
-- add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations.
+- add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
+- implement Slice 3: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool.
 
 Not done:
 
@@ -33,8 +34,10 @@ Behavior:
 
 ```text
 memory_tag.capture(delta, valence, ttl_seconds, call_ttl=32, hooks, trigger, affect_hints)
-  -> append one JSONL mnion tag
-  -> no graph, embedding, pointer, deep memory, kernel write, or engram
+  -> pre-capture compare against newest active tags
+  -> created | reinforced | linked_new
+  -> append one mnion record or a small lifecycle event
+  -> no embedding, pointer, deep memory, kernel write, or engram
 ```
 
 Default storage follows `MNEME_STATE_DIR` first, then XDG:
