@@ -13,7 +13,7 @@ Done:
 - sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
 - implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
 - implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations;
-- implement Slice 2: `mnion_capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
+- implement Slice 2: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations.
 
 Not done:
@@ -32,7 +32,7 @@ Goal: prove that I can capture a live movement as a cheap, ephemeral tag before 
 Behavior:
 
 ```text
-mnion_capture(delta, valence, ttl_seconds, call_ttl=32, hooks, trigger, affect_hints)
+memory_tag.capture(delta, valence, ttl_seconds, call_ttl=32, hooks, trigger, affect_hints)
   -> append one JSONL mnion tag
   -> no graph, embedding, pointer, deep memory, kernel write, or engram
 ```
@@ -93,7 +93,7 @@ Goal: make mnions live/decay by actual Mneme/mnion use, not by wall-clock alone 
 Behavior:
 
 ```text
-mnion_capture increments mneme_call_seq
+memory_tag.capture increments mneme_call_seq
 mnion.birth_call_seq = current mneme_call_seq
 mnion_touch / mnion_sweep use call_age + wall fallback
 future config file may tune default_ttl_seconds/default_call_ttl/active_limit after real use

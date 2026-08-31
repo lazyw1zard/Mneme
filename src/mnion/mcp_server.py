@@ -22,13 +22,8 @@ DEFAULT_LEDGER_PATH = DEFAULT_STATE_DIR / "mnions.jsonl"
 DEFAULT_CALL_STATE_PATH = DEFAULT_STATE_DIR / "mneme_seq.json"
 
 CAPTURE_DESCRIPTION = (
-    "Capture one cheap ephemeral mnion: a small contour delta with valence, wall TTL, "
-    "call TTL, birth call sequence, hooks, trigger, and affect hints. Each capture "
-    "increments the portable Mneme/mnion call counter. Use when the live turn leaves "
-    "a correction, self-promise, affect signal, contour shift, loss-cost, curiosity "
-    "pull, or other movement that may deserve later consolidation. Unreinforced "
-    "mnions decay. This does not create graph edges, embeddings, deep memory, kernel "
-    "updates, or engrams."
+    "Capture a temporary memory tag for a meaningful contour delta; "
+    "not durable memory."
 )
 
 
@@ -40,17 +35,15 @@ def create_server(
     ledger = Path(ledger_path).expanduser()
     state = Path(state_path).expanduser()
     server = FastMCP(
-        "nira-mnion-capture",
+        "memory-tag-capture",
         instructions=(
-            "Mnion is a capture organ, not full Mneme. Capture minimal ephemeral contour "
-            "deltas when affect/significance is visible. Each call advances only the "
-            "portable Mneme/mnion call counter; it does not count every runtime/model turn. "
-            "Threshold crossing means later review pressure, not automatic promotion."
+            "Capture temporary memory tags for meaningful contour deltas. "
+            "This is not durable memory and not automatic promotion."
         ),
     )
 
-    @server.tool(name="mnion_capture", description=CAPTURE_DESCRIPTION)
-    def mnion_capture(
+    @server.tool(name="capture", description=CAPTURE_DESCRIPTION)
+    def capture(
         delta: str,
         valence: float,
         ttl_seconds: int = DEFAULT_TTL_SECONDS,
@@ -79,7 +72,7 @@ def create_server(
             "threshold": CONSOLIDATION_THRESHOLD,
             "do_not_infer": [
                 "This is not durable memory.",
-                "This counter counts Mneme/mnion calls, not every agent/runtime/model generation.",
+                "This counter counts memory-tag/Mneme calls, not every agent/runtime/model generation.",
                 "Threshold crossing is review pressure, not automatic promotion.",
                 "No graph edges, embeddings, deep-memory nodes, kernel notes, or engrams were created.",
             ],

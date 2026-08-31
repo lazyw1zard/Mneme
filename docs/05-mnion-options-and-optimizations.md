@@ -235,7 +235,7 @@ Do not split axes until touch/review behavior proves the need.
 - no automatic kernel/engram writes;
 - no Hermes/Codex dependency for lifecycle;
 - no prompt dump of full mnion ledger;
-- no promotion from `mnion_capture` alone.
+- no promotion from `memory_tag.capture` alone.
 
 ## Working maxim
 

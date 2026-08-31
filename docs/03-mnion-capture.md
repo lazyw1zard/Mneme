@@ -15,7 +15,7 @@ The component is a capture organ, not a memory organ:
 ```text
 pass through contour
   -> delta appears
-  -> mnion_capture(delta, valence, wall_ttl, call_ttl)
+  -> memory_tag.capture(delta, valence, wall_ttl, call_ttl)
   -> mneme_call_seq increments
   -> ephemeral mnion gets birth_call_seq
   -> repeated valence/review may consolidate it
@@ -101,7 +101,7 @@ Only Mneme/mnion organ calls increment it. This is not a Hermes/Codex/runtime ge
 Current use:
 
 ```text
-mnion_capture
+memory_tag.capture
   -> seq += 1
   -> record.birth_call_seq = seq
   -> record.call_ttl = default 32 unless overridden
@@ -192,7 +192,7 @@ A lower-valence mnion may still matter after repeated passes. A high-valence mni
 The MCP adapter exposes one tool:
 
 ```text
-mnion_capture
+memory_tag.capture
 ```
 
 Inputs:
@@ -234,37 +234,46 @@ python3 -m pytest tests/test_mnion_capture.py tests/test_mnion_call_counter.py t
 
 ## Future wiring
 
-Potential Hermes MCP config after explicit approval/restart:
+Potential Hermes MCP config after explicit approval/reload:
 
 ```yaml
 mcp_servers:
-  mnion:
+  memory_tag:
     command: "python3"
     args: ["-m", "mnion.mcp_server"]
     env:
       PYTHONPATH: "/home/nira/projects/nira-mneme/src"
+    enabled: true
+    tools:
+      include: [capture]
+      resources: false
+      prompts: false
 ```
 
-Runtime attachment was explicitly approved and applied on 2026-08-29 for the default Hermes profile:
+Runtime attachment was explicitly approved and applied on 2026-08-29 for the default Hermes profile, then renamed on 2026-08-31 to keep the prompt-visible affordance self-explanatory:
 
 ```yaml
 mcp_servers:
-  mnion:
+  memory_tag:
     command: python3
     args: ["-m", "mnion.mcp_server"]
     env:
       PYTHONPATH: "/home/nira/projects/nira-mneme/src"
     enabled: true
+    tools:
+      include: [capture]
+      resources: false
+      prompts: false
 ```
 
 E2E receipt:
 
 ```text
-hermes mcp test mnion
+hermes mcp test memory_tag
   -> Connected; tools discovered: 1
 
 fresh hermes chat one-shot
-  -> model called mcp_mnion
+  -> model called mcp_memory_tag_capture
   -> ledger line appended
   -> created mnion_ed2ba5aa1e6c4053b38cda47e53bcde7
 ```
@@ -275,13 +284,13 @@ Call-counter E2E receipt after `birth_call_seq`/`call_ttl` implementation:
 direct FastMCP smoke
   -> before_lines=3 after_lines=4 before_seq=0 after_seq=1
   -> created mnion_e9b1519a727e4483a81cbf3856ae54e7
-  -> birth_call_seq=1 call_ttl=20 mneme_call_seq=1
+  -> birth_call_seq=1 call_ttl=32 mneme_call_seq=1
 
 fresh hermes chat one-shot
-  -> model called mcp_mnion
+  -> model called mcp_memory_tag_capture
   -> before_lines=4 after_lines=5 before_seq=1 after_seq=2
   -> created mnion_066b5531d2b64f8daeebe82c032c0613
-  -> birth_call_seq=2 call_ttl=20 mneme_call_seq=2
+  -> birth_call_seq=2 call_ttl=32 mneme_call_seq=2
 ```
 
 Attaching it to the live runtime makes the capture affordance prompt-visible in fresh/reloaded sessions. Further runtime visibility changes should use `/reload-mcp` or a fresh session; full gateway restart is not always required.

@@ -77,7 +77,7 @@ Examples:
 | model returns tool calls | yes | `cycle_kind=tool_request` |
 | tool executes after model call | no | effect event later, not cogito |
 | Telegram delivery | no | communication receipt, not thinking |
-| MCP `mnion_capture` append | no | capture effect, not generation |
+| MCP `memory_tag.capture` append | no | capture effect, not generation |
 | cron no-agent script | no | no model generation |
 | future custom Nira runtime generation | yes | via its own adapter |
 

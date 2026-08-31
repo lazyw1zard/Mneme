@@ -8,18 +8,17 @@ def run(coro):
     return asyncio.run(coro)
 
 
-def test_mcp_server_exposes_single_capture_affordance(tmp_path):
+def test_mcp_server_exposes_single_memory_tag_capture_affordance(tmp_path):
     server = create_server(ledger_path=tmp_path / "mnions.jsonl")
 
     tools = run(server.list_tools())
 
-    assert [tool.name for tool in tools] == ["mnion_capture"]
-    description = tools[0].description.lower()
-    assert "delta" in description
-    assert "valence" in description
-    assert "affect" in description
-    assert "ttl" in description
-    assert "decay" in description
+    assert [tool.name for tool in tools] == ["capture"]
+    description = tools[0].description
+    assert description == (
+        "Capture a temporary memory tag for a meaningful contour delta; "
+        "not durable memory."
+    )
     schema = tools[0].inputSchema
     assert "delta" in schema["properties"]
     assert "valence" in schema["properties"]
@@ -41,7 +40,7 @@ def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
     state = tmp_path / "mneme_seq.json"
     server = create_server(ledger_path=ledger, state_path=state)
 
-    result = run(server.call_tool("mnion_capture", {
+    result = run(server.call_tool("capture", {
         "delta": "Synaptic tagging gives Mneme a cheap capture-first model.",
         "valence": 0.76,
         "ttl_seconds": 3600,
@@ -52,7 +51,6 @@ def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
     }))
 
     content_blocks, structured = result
-
     assert structured["ok"] is True
     assert structured["record"]["id"].startswith("mnion_")
     assert structured["record"]["delta"] == "Synaptic tagging gives Mneme a cheap capture-first model."
