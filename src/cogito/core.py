@@ -5,10 +5,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import json
+import os
 import uuid
 
 
-DEFAULT_LEDGER_PATH = Path.home() / ".local" / "state" / "nira-mneme" / "cogito_cycles.jsonl"
+def default_cogito_ledger_path() -> Path:
+    explicit = os.environ.get("MNEME_STATE_DIR")
+    if explicit:
+        return Path(explicit).expanduser() / "cogito_cycles.jsonl"
+    xdg_state = os.environ.get("XDG_STATE_HOME")
+    if xdg_state:
+        return Path(xdg_state).expanduser() / "mneme" / "cogito_cycles.jsonl"
+    return Path.home() / ".local" / "state" / "mneme" / "cogito_cycles.jsonl"
+
+
+DEFAULT_LEDGER_PATH = default_cogito_ledger_path()
 GENERATION_MOVEMENT_KIND = "model_generation"
 
 

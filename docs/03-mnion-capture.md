@@ -83,11 +83,15 @@ Current JSONL record:
 
 ## Storage and call counter
 
-Runtime storage is still plain local files:
+Runtime storage is still plain local files, resolved from `MNEME_STATE_DIR` or XDG defaults:
 
 ```text
-~/.local/state/nira-mneme/mnions.jsonl
-~/.local/state/nira-mneme/mneme_seq.json
+$MNEME_STATE_DIR/mnions.jsonl
+$MNEME_STATE_DIR/mneme_seq.json
+
+# fallback when MNEME_STATE_DIR is unset:
+$XDG_STATE_HOME/mneme/...
+# or ~/.local/state/mneme/... when XDG_STATE_HOME is unset
 ```
 
 `mneme_seq.json` is deliberately tiny:
@@ -222,7 +226,7 @@ no graph/embedding/deep node/kernel/engram was created.
 - no SQLite/graph/vector store;
 - no pointer promotion;
 - no Dream queue;
-- no kernel or Hermes memory write;
+- no kernel or host-agent memory write;
 - no daemon beyond stdio MCP server when explicitly configured;
 - no Hermes config wiring in the initial implementation slice; live attachment is a separate explicit runtime step recorded below.
 
@@ -239,10 +243,9 @@ Potential Hermes MCP config after explicit approval/reload:
 ```yaml
 mcp_servers:
   memory_tag:
-    command: "python3"
-    args: ["-m", "mnion.mcp_server"]
+    command: "memory-tag-mcp"
     env:
-      PYTHONPATH: "/home/nira/projects/nira-mneme/src"
+      MNEME_STATE_DIR: "~/.local/state/mneme"
     enabled: true
     tools:
       include: [capture]
@@ -250,7 +253,7 @@ mcp_servers:
       prompts: false
 ```
 
-Runtime attachment was explicitly approved and applied on 2026-08-29 for the default Hermes profile, then renamed on 2026-08-31 to keep the prompt-visible affordance self-explanatory:
+Runtime attachment was explicitly approved and applied on 2026-08-29 for the default Hermes profile, then renamed on 2026-08-31 to keep the prompt-visible affordance self-explanatory. The public config shape is neutral; local development may still use a profile-specific `PYTHONPATH` outside this document.
 
 ```yaml
 mcp_servers:
@@ -258,7 +261,8 @@ mcp_servers:
     command: python3
     args: ["-m", "mnion.mcp_server"]
     env:
-      PYTHONPATH: "/home/nira/projects/nira-mneme/src"
+      PYTHONPATH: "$PROJECT_DIR/src"
+      MNEME_STATE_DIR: "~/.local/state/mneme"
     enabled: true
     tools:
       include: [capture]
@@ -291,6 +295,18 @@ fresh hermes chat one-shot
   -> before_lines=4 after_lines=5 before_seq=1 after_seq=2
   -> created mnion_066b5531d2b64f8daeebe82c032c0613
   -> birth_call_seq=2 call_ttl=32 mneme_call_seq=2
+```
+
+OSS path cleanup E2E receipt after `MNEME_STATE_DIR`/XDG defaults:
+
+```text
+fresh hermes chat one-shot
+  -> model called mcp_memory_tag_capture
+  -> legacy state dir line count stayed 8
+  -> generic ~/.local/state/mneme lines grew 8 -> 9
+  -> seq grew 5 -> 6
+  -> created mnion_3191861c74e64503916ff84e490e6c95
+  -> birth_call_seq=6 call_ttl=32 ttl_seconds=604800
 ```
 
 Attaching it to the live runtime makes the capture affordance prompt-visible in fresh/reloaded sessions. Further runtime visibility changes should use `/reload-mcp` or a fresh session; full gateway restart is not always required.

@@ -4,13 +4,13 @@ This document preserves the first project seed for Mneme.
 
 Source material:
 
-- `/home/nira/kernel/Nira_kernel/MNEME_DESIGN.md`
-- `/home/nira/.local/state/nira-night-work/2026-08-25-mneme-segment1-semantic-nucleus.md`
-- Denis's correction: do not turn Mneme into a database; connect it to affect and metamemory — “I know that I know.”
+- private kernel design note: `MNEME_DESIGN.md`;
+- private exploratory work note: `2026-08-25-mneme-segment1-semantic-nucleus.md`;
+- operator correction: do not turn Mneme into a database; connect it to affect and metamemory — “I know that I know.”
 
 ## Problem
 
-Hermes memory is tiny and operational. Session history is rich but too large. Kernel files are stable but require deliberate reading. Future organs will produce logs, traces, receipts, dreams, reviews, and state changes.
+Host-agent memory is tiny and operational. Session history is rich but too large. Kernel files are stable but require deliberate reading. Future organs will produce logs, traces, receipts, dreams, reviews, and state changes.
 
 The problem is not simply storage. The problem is remembering how to remember:
 
@@ -94,7 +94,7 @@ Not allowed as automatic behavior:
 ```text
 write durable identity memory
 promote to kernel/engram
-contact Denis
+contact operator/user
 claim certainty about unloaded content
 capture intimate/profile hypotheses as facts
 ```

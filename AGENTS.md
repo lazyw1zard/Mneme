@@ -1,6 +1,6 @@
-# nira-mneme Agent Notes
+# Mneme Tags Agent Notes
 
-This repository is the workbench for my future Mneme organ.
+This repository is a workbench for a future Mneme-style memory organ.
 
 ## Required stance
 
@@ -32,8 +32,8 @@ metamemory pointer
 
 - Do not auto-capture raw transcripts.
 - Do not store secrets or credentials.
-- Do not silently write Hermes memory, kernel files, or engrams.
-- Do not contact Denis from project scripts.
+- Do not silently write host-agent memory, kernel/state files, or engrams.
+- Do not contact operators/users from project scripts.
 - Do not turn failed retrieval into assumed absence.
 - Do not turn pointer discovery into intention/action.
 - Keep Pulse non-semantic; Mneme may project compact pressure/receipt only.

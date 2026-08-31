@@ -1,12 +1,12 @@
 [project]
-name = "nira-mneme"
+name = "mneme-tags"
 version = "0.1.0"
-description = "Nira Mneme workbench: cheap mnion capture before memory consolidation."
+description = "Portable memory-tag capture primitives before durable memory consolidation."
 requires-python = ">=3.11"
 dependencies = ["mcp>=1.0"]
 
 [project.scripts]
-mnion-mcp = "mnion.mcp_server:main"
+memory-tag-mcp = "mnion.mcp_server:main"
 cogito = "cogito.cli:main"
 cogito-hermes-hook = "cogito.hermes_hook:main"
 

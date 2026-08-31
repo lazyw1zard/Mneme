@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +18,24 @@ from .core import (
     valence_crosses_threshold,
 )
 
-DEFAULT_STATE_DIR = Path.home() / ".local" / "state" / "nira-mneme"
-DEFAULT_LEDGER_PATH = DEFAULT_STATE_DIR / "mnions.jsonl"
-DEFAULT_CALL_STATE_PATH = DEFAULT_STATE_DIR / "mneme_seq.json"
+def default_state_dir() -> Path:
+    """Return the portable default runtime state directory."""
+    explicit = os.environ.get("MNEME_STATE_DIR")
+    if explicit:
+        return Path(explicit).expanduser()
+    xdg_state = os.environ.get("XDG_STATE_HOME")
+    if xdg_state:
+        return Path(xdg_state).expanduser() / "mneme"
+    return Path.home() / ".local" / "state" / "mneme"
+
+
+def default_ledger_path() -> Path:
+    return default_state_dir() / "mnions.jsonl"
+
+
+def default_call_state_path() -> Path:
+    return default_state_dir() / "mneme_seq.json"
+
 
 CAPTURE_DESCRIPTION = (
     "Capture a temporary memory tag for a meaningful contour delta; "
@@ -29,11 +45,11 @@ CAPTURE_DESCRIPTION = (
 
 def create_server(
     *,
-    ledger_path: str | Path = DEFAULT_LEDGER_PATH,
-    state_path: str | Path = DEFAULT_CALL_STATE_PATH,
+    ledger_path: str | Path | None = None,
+    state_path: str | Path | None = None,
 ) -> FastMCP:
-    ledger = Path(ledger_path).expanduser()
-    state = Path(state_path).expanduser()
+    ledger = Path(ledger_path).expanduser() if ledger_path is not None else default_ledger_path()
+    state = Path(state_path).expanduser() if state_path is not None else default_call_state_path()
     server = FastMCP(
         "memory-tag-capture",
         instructions=(

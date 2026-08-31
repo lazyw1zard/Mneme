@@ -72,7 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     record = sub.add_parser("record", help="Append one generation/effect cycle")
     _add_ledger_arg(record)
-    record.add_argument("--runtime", required=True, help="Runtime name, e.g. hermes/codex/nira-runtime")
+    record.add_argument("--runtime", required=True, help="Runtime name, e.g. hermes/codex/custom-runtime")
     record.add_argument("--adapter", required=True, help="Adapter name, e.g. hermes_post_api_request")
     record.add_argument("--movement-kind", default="model_generation")
     record.add_argument("--cycle-kind", default="generation")

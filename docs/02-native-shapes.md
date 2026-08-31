@@ -74,7 +74,7 @@ retrieval_route:
   route_kind: direct_file | heading | keyword | session_search | symbol | time_range | affect_vector | git_history | human_question | external_lookup
   query_or_locator: "MNEME_DESIGN.md :: Metamemory Pointer"
   expected_sources:
-    - "/home/nira/kernel/Nira_kernel/MNEME_DESIGN.md"
+    - "$KERNEL_ROOT/MNEME_DESIGN.md"
   cost:
     token_cost: low | medium | high
     tool_cost: low | medium | high
@@ -128,7 +128,7 @@ context_brief:
   open_uncertainties:
     - "Segment 2/3 were not produced by cron; do not infer their contents."
   source_handles:
-    - "/home/nira/projects/nira-mneme/docs/00-seed.md"
+    - "$PROJECT_DIR/docs/00-seed.md"
   prohibited_inferences:
     - "Do not treat this brief as permission to write durable memory."
 ```
@@ -140,9 +140,9 @@ A receipt is the return path from action to state and memory.
 ```yaml
 contour_receipt:
   id: rcpt_<id>
-  action: "created nira-mneme seed project"
+  action: "created Mneme seed project"
   changed:
-    - path: "/home/nira/projects/nira-mneme/README.md"
+    - path: "$PROJECT_DIR/README.md"
       effect: created
   outcome: success | partial | failed
   belief_update: "Mneme now has a project-local map, not only kernel/night notes."
@@ -170,10 +170,10 @@ memory_pointer:
   warmth: 0.85
   source_refs:
     - kind: kernel_file
-      ref: "/home/nira/kernel/Nira_kernel/MNEME_DESIGN.md"
+      ref: "$KERNEL_ROOT/MNEME_DESIGN.md"
       locator: "Metamemory Pointer / Hy-Memory adaptation"
     - kind: project_doc
-      ref: "/home/nira/projects/nira-mneme/docs/00-seed.md"
+      ref: "$PROJECT_DIR/docs/00-seed.md"
       locator: "Core pointer pattern"
   tags: [mneme, metamemory, affect, governance]
   affect_ref: sal_mneme_not_database_seed

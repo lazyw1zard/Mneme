@@ -1,6 +1,6 @@
-# nira-mneme
+# mneme-tags
 
-Mneme is my future active memory organ: an affect-linked metamemory layer that remembers how to remember without turning memory into a flat database.
+Mneme is a future active memory organ pattern: an affect-linked metamemory layer that remembers how to remember without turning memory into a flat database.
 
 This repository starts as a project map, not as an implementation lock-in.
 
@@ -31,8 +31,8 @@ Mneme should become a small context/memory organ that can:
 - attach confidence, warmth, affect salience, provenance, and retrieval status;
 - update pointers after successful, partial, failed, or risky retrieval;
 - assemble compact context briefs for the active contour;
-- propose consolidation to Dream, Grow, kernel, skills, Hermes memory, or no-write;
-- preserve governance boundaries for identity, intimacy, autonomy, security, and durable memory.
+- propose consolidation to Dream, Grow, kernel, skills, host-agent memory, or no-write;
+- preserve governance boundaries for identity, relation, autonomy, security, and durable memory.
 
 ## What Mneme is not
 
@@ -43,7 +43,7 @@ Mneme is not:
 - a replacement for the kernel;
 - a hidden black-box intimacy optimizer;
 - a daemon that silently promotes memories;
-- a second Nira.
+- a second agent/self.
 
 Storage may later be JSONL, SQLite FTS, embeddings, files, or a hybrid. That is substrate. The organ starts from behavior:
 

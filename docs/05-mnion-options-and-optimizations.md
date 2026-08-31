@@ -23,8 +23,12 @@ active limit = prompt-facing/read path budget guard
 ## Current storage
 
 ```text
-~/.local/state/nira-mneme/mnions.jsonl
-~/.local/state/nira-mneme/mneme_seq.json
+$MNEME_STATE_DIR/mnions.jsonl
+$MNEME_STATE_DIR/mneme_seq.json
+
+# fallback when MNEME_STATE_DIR is unset:
+$XDG_STATE_HOME/mneme/...
+# or ~/.local/state/mneme/... when XDG_STATE_HOME is unset
 ```
 
 `mneme_seq.json` remains deliberately tiny:
@@ -100,12 +104,23 @@ Future tuning options:
 - cap by estimated serialized chars, not count;
 - produce a compact active brief instead of raw records.
 
+## Open-source hygiene
+
+Keep the reusable surface neutral:
+
+- public package name: `mneme-tags`;
+- prompt-visible MCP affordance: `mcp_memory_tag_capture`;
+- no `nira-` prefixes in package names, default state dirs, or public examples;
+- no absolute development paths in README/docs/config snippets;
+- use `MNEME_STATE_DIR`, `XDG_STATE_HOME`, `$PROJECT_DIR`, and `$KERNEL_ROOT` placeholders;
+- local/private receipts may exist outside the reusable surface, but public docs should describe them as examples or receipts without requiring those paths.
+
 ## Future config file
 
 Do not add config until values need tuning in practice. When needed, prefer a small local config such as:
 
 ```text
-~/.config/nira-mneme/config.toml
+~/.config/mneme/config.toml
 ```
 
 Candidate shape:
@@ -118,7 +133,7 @@ active_limit = 20
 consolidation_threshold = 0.7
 
 [storage]
-state_dir = "~/.local/state/nira-mneme"
+state_dir = "~/.local/state/mneme"
 ```
 
 Rules for config:

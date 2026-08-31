@@ -37,11 +37,15 @@ memory_tag.capture(delta, valence, ttl_seconds, call_ttl=32, hooks, trigger, aff
   -> no graph, embedding, pointer, deep memory, kernel write, or engram
 ```
 
-Storage is a local append-only audit ledger plus one portable call counter:
+Default storage follows `MNEME_STATE_DIR` first, then XDG:
 
 ```text
-~/.local/state/nira-mneme/mnions.jsonl
-~/.local/state/nira-mneme/mneme_seq.json  # {"seq": N}
+$MNEME_STATE_DIR/mnions.jsonl
+$MNEME_STATE_DIR/mneme_seq.json
+
+# fallback when MNEME_STATE_DIR is unset:
+$XDG_STATE_HOME/mneme/mnions.jsonl
+$XDG_STATE_HOME/mneme/mneme_seq.json
 ```
 
 The counter advances only when the Mneme/mnion organ is called. It does not count every Hermes turn, model generation, Telegram delivery, tool execution, or Codex run.
@@ -76,7 +80,7 @@ scripts/cogito_hermes_hook.py  # shell-hook wrapper, no PYTHONPATH needed
 Storage:
 
 ```text
-~/.local/state/nira-mneme/cogito_cycles.jsonl
+$MNEME_STATE_DIR/cogito_cycles.jsonl
 ```
 
 Verification:
@@ -226,8 +230,8 @@ Verification:
 
 ## Integration questions to keep open
 
-1. Should the first implementation be Rust CLI like `nira-pulse`, or a tiny Python prototype for shape exploration?
+1. Should the first implementation be Rust CLI, or a tiny Python prototype for shape exploration?
 2. Which source handles are safe for MVP: project docs only, kernel docs read-only, current traces, session search?
-3. Where should access attempts live: project-local audit log or shared Nira state dir?
+3. Where should access attempts live: project-local audit log or shared state dir?
 4. How does Mneme coordinate with Dream queue without making Dream a retrieval query?
 5. What is the minimal test that proves “I know that I know” without loaded content?

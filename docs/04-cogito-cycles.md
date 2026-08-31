@@ -79,7 +79,7 @@ Examples:
 | Telegram delivery | no | communication receipt, not thinking |
 | MCP `memory_tag.capture` append | no | capture effect, not generation |
 | cron no-agent script | no | no model generation |
-| future custom Nira runtime generation | yes | via its own adapter |
+| future custom agent runtime generation | yes | via its own adapter |
 
 ## CLI
 
@@ -106,7 +106,11 @@ PYTHONPATH=src python3 -m cogito.cli count-since <cycle_id>
 Default ledger:
 
 ```text
-~/.local/state/nira-mneme/cogito_cycles.jsonl
+$MNEME_STATE_DIR/cogito_cycles.jsonl
+
+# fallback when MNEME_STATE_DIR is unset:
+$XDG_STATE_HOME/mneme/cogito_cycles.jsonl
+# or ~/.local/state/mneme/cogito_cycles.jsonl
 ```
 
 ## Hermes adapter
@@ -129,7 +133,7 @@ Hermes post_api_request
 Convenient wrapper for shell hooks:
 
 ```bash
-/home/nira/projects/nira-mneme/scripts/cogito_hermes_hook.py
+scripts/cogito_hermes_hook.py
 ```
 
 It self-adds `src/` to `sys.path`, so a Hermes shell hook does not need a `PYTHONPATH` prefix.
@@ -139,7 +143,7 @@ Potential config shape, not applied by this slice:
 ```yaml
 hooks:
   - event: post_api_request
-    command: /home/nira/projects/nira-mneme/scripts/cogito_hermes_hook.py
+    command: $PROJECT_DIR/scripts/cogito_hermes_hook.py
     timeout: 5
 ```
 

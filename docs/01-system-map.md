@@ -12,7 +12,7 @@ source event / trace / artifact / dialogue correction
   -> retrieval route(s)
   -> context brief when needed
   -> active contour governance
-  -> one of: cool / keep warm / Dream / Grow / kernel / skill / Hermes memory / archive / ask Denis / no-write
+  -> one of: cool / keep warm / Dream / Grow / kernel / skill / host-agent memory / archive / ask operator / no-write
 ```
 
 ## Organ topology
@@ -50,7 +50,7 @@ source event / trace / artifact / dialogue correction
   Dream queue
   Grow queue
   skill
-  Hermes memory
+  host-agent memory
   kernel note
   engram candidate
   cold archive
