@@ -15,7 +15,8 @@ Done:
 - implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations;
 - implement Slice 2: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
-- implement Slice 3: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool.
+- implement Slice 3: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
+- implement Slice 4: minimal host-neutral `mnion.micro_consolidation` module that prepares the latest 10 active mnions for an agent review and returns one candidate contour or a structured error.
 
 Not done:
 
@@ -24,7 +25,8 @@ Not done:
 - no vector store;
 - no auto-ingestion;
 - no kernel mutation;
-- no automatic memory capture.
+- no automatic memory capture;
+- no automatic durable write from micro-consolidation.
 
 ## Slice 0 — mnion capture organ prototype
 
@@ -113,7 +115,51 @@ Verification:
 - repeated capture/touch can update valence without promotion;
 - no dependency on Hermes hooks, Codex logs, or agent-runtime internals.
 
-## Slice 3 — local pointer ledger prototype
+## Slice 3 — pre-capture filter
+
+Goal: prevent obvious duplicate mnions before they enter the active set.
+
+Behavior:
+
+```text
+memory_tag.capture
+  -> compare candidate against newest active tags
+  -> created | reinforced | linked_new
+```
+
+Verification:
+
+- repeated same-pattern contours append reinforcement events instead of duplicate records;
+- related but distinct contours append link audit hints;
+- reinforcement refreshes call-life for active loading;
+- no embeddings, model calls, vector store, or durable promotion.
+
+## Slice 4 — micro-consolidation review packet
+
+Goal: prove that a small batch of active mnions can be handed to a host-provided live contour/agent without making Mneme depend on Hermes.
+
+Behavior:
+
+```text
+prepare_micro_consolidation_request(limit=10)
+  -> latest active mnions
+  -> portable prompt + expected schema
+
+run_micro_consolidation(agent=callable)
+  -> try agent(request)
+  -> ConsolidatedContour(summary, valence, member_ids, rationale)
+  -> structured error if the agent call fails or returns invalid data
+```
+
+Verification:
+
+- latest 10 active mnions are selected chronologically inside the selected window;
+- successful agent callback returns one candidate contour;
+- failing agent callback returns `agent_call_failed`;
+- invalid agent output returns `invalid_agent_response`;
+- this first slice does not write review events to the ledger.
+
+## Slice 5 — local pointer ledger prototype
 
 Goal: prove that a memory pointer can exist without loaded content.
 
@@ -134,7 +180,7 @@ Verification:
 - show pointer;
 - confirm no retrieval/content ingestion happens automatically.
 
-## Slice 4 — retrieval attempt updates route
+## Slice 6 — retrieval attempt updates route
 
 Goal: prove failed recall updates pointer state instead of deleting or denying memory.
 
@@ -157,7 +203,7 @@ Verification:
 - see `last_attempt.status=failed` and route note updated;
 - pointer still exists with confidence separated from route success.
 
-## Slice 5 — context brief instead of archive flood
+## Slice 7 — context brief instead of archive flood
 
 Goal: prove Mneme can assemble a small brief from pointer/source handles.
 
@@ -182,7 +228,7 @@ Verification:
 - brief cites files/handles;
 - brief does not claim more than source supports.
 
-## Slice 6 — affect salience routing
+## Slice 8 — affect salience routing
 
 Goal: show affect changes routing without becoming fake emotion text.
 
@@ -205,7 +251,7 @@ Verification:
 - high risk suggests `protect` or `ask`, not auto-write;
 - low salience keeps cold pointer.
 
-## Slice 7 — contour receipt bridge
+## Slice 9 — contour receipt bridge
 
 Goal: connect Mneme output back to StateLayer/Pulse without flattening organs.
 

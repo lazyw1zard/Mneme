@@ -84,6 +84,7 @@ Kernel
 - `docs/03-mnion-capture.md` — first executable capture-organ slice: MCP-visible ephemeral mnion tags before durable memory.
 - `docs/04-cogito-cycles.md` — runtime-neutral generation-cycle spine; parked from the active mnion lifecycle path.
 - `docs/05-mnion-options-and-optimizations.md` — living shelf for tuning choices: TTL, active limits, config candidates, archive/index options.
+- `docs/06-micro-consolidation.md` — minimal portable experiment: latest mnions become a host-agent review packet and one candidate contour.
 - `NEXT_STEPS.md` — small reversible slices to continue.
 
 ## Boundary
