@@ -33,7 +33,7 @@ Mneme should become a small context/memory organ that can:
 - assemble compact context briefs for the active contour;
 - propose consolidation to Dream, Grow, kernel, skills, host-agent memory, Mnion, or no-write;
 - preserve governance boundaries for identity, relation, autonomy, security, and durable memory;
-- provide a host-runtime routing contract so Mnion is considered during live memory decisions instead of being merely a forgotten tool.
+- provide a host-neutral routing contract so memory candidates are considered during live agent decisions instead of being merely forgotten tools.
 
 ## What Mneme is not
 

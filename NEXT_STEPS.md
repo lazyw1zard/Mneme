@@ -29,32 +29,46 @@ Not done:
 - no automatic durable write from micro-consolidation;
 - no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
 
-## Slice 4.5 — host-runtime memory-routing contract
+## Slice 4.5 — host-neutral memory-routing contract
 
-Goal: fix the first live failure where `memory_tag.capture` existed but I did not consider it until Denis explicitly pointed at “other tools.”
+Goal: fix the first live failure without turning Mneme into a local Hermes hack or keyword-trigger script. `memory_tag.capture` existed, but the active contour did not consider it because no memory-orientation layer made the affordance salient.
 
 Behavior:
 
 ```text
-memory-shaped situation
-  -> route_memory_candidate()
-  -> no_write | mnion | current_trace | durable_memory | kernel | engram
+agent host turn/event
+  -> Mneme routing membrane
+  -> no_write | candidate/mnion | recall_brief | review_due | commit_request
 ```
 
-This is not keyword auto-capture. Words like `память`, `важно`, and `сохранить` should create routing pressure only. The live contour still judges meaning, durability, sensitivity, and consequence.
+This is not keyword auto-capture. Words like `память`, `важно`, and `сохранить` can be weak evidence, but they must never be the trigger. The routing membrane should weigh meaning, durability, utility, valence, sensitivity, volatility, and consequence.
 
-Possible surfaces, in increasing depth:
+Portable ports:
 
-1. patch the Nira state-writing skill/rubric so Mnion is in the first routing table;
-2. add a tiny Hermes/Nira ingress reminder from kernel or config context;
-3. expose a Mneme `brief`/`review_due` tool so previous mnions create return pressure;
-4. later, a `pre_llm_call` plugin may inject a compact Mneme routing hint or active-mnion brief, but must not auto-ingest raw turns.
+```text
+TurnIngressPort   -> optional brief/routing hint before the model answers
+SaliencePort      -> score memory pressure from events/actions/corrections
+CapturePort       -> write ephemeral candidate/mnion with provenance
+RecallPort        -> return compact brief + pointers + confidence + guards
+ReviewPort        -> prepare consolidation proposal
+CommitPort        -> apply approved durable write with audit/deletion route
+```
+
+Adapter examples:
+
+```text
+Hermes       plugin hooks + MCP tools + memory tool adapter
+LangGraph    middleware/nodes/checkpointer adapter
+CLI agent    pre/post turn wrapper + XDG state dir
+Assistants   run lifecycle + tool resources adapter
+```
 
 Verification:
 
-- after a fresh session, a memory-routing question should mention or use Mnion when appropriate without Denis naming the MCP tool;
+- fresh host session can receive a Mneme brief/routing hint without local hardcoded paths;
+- memory-shaped turns can select Mnion/candidate when appropriate without keyword matching;
 - durable memory/kernel writes still require governance;
-- no raw transcript capture, no keyword listener, no hidden auto-promotion.
+- no raw transcript capture, no hidden listener, no silent auto-promotion.
 
 ## Slice 0 — mnion capture organ prototype
 
