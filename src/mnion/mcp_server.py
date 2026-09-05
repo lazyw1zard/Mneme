@@ -38,8 +38,9 @@ def default_call_state_path() -> Path:
 
 
 CAPTURE_DESCRIPTION = (
-    "Capture a temporary memory tag for a meaningful contour delta; "
-    "not durable memory."
+    "Capture an ephemeral memory candidate for a meaningful contour delta "
+    "that may matter later but is not yet durable memory. "
+    "Do not use for raw transcripts, secrets, or keyword-triggered saving."
 )
 
 

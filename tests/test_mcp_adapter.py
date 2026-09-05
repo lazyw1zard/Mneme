@@ -16,8 +16,9 @@ def test_mcp_server_exposes_single_memory_tag_capture_affordance(tmp_path):
     assert [tool.name for tool in tools] == ["capture"]
     description = tools[0].description
     assert description == (
-        "Capture a temporary memory tag for a meaningful contour delta; "
-        "not durable memory."
+        "Capture an ephemeral memory candidate for a meaningful contour delta "
+        "that may matter later but is not yet durable memory. "
+        "Do not use for raw transcripts, secrets, or keyword-triggered saving."
     )
     schema = tools[0].inputSchema
     assert "delta" in schema["properties"]
