@@ -31,8 +31,9 @@ Mneme should become a small context/memory organ that can:
 - attach confidence, warmth, affect salience, provenance, and retrieval status;
 - update pointers after successful, partial, failed, or risky retrieval;
 - assemble compact context briefs for the active contour;
-- propose consolidation to Dream, Grow, kernel, skills, host-agent memory, or no-write;
-- preserve governance boundaries for identity, relation, autonomy, security, and durable memory.
+- propose consolidation to Dream, Grow, kernel, skills, host-agent memory, Mnion, or no-write;
+- preserve governance boundaries for identity, relation, autonomy, security, and durable memory;
+- provide a host-runtime routing contract so Mnion is considered during live memory decisions instead of being merely a forgotten tool.
 
 ## What Mneme is not
 

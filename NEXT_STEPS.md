@@ -26,7 +26,35 @@ Not done:
 - no auto-ingestion;
 - no kernel mutation;
 - no automatic memory capture;
-- no automatic durable write from micro-consolidation.
+- no automatic durable write from micro-consolidation;
+- no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
+
+## Slice 4.5 — host-runtime memory-routing contract
+
+Goal: fix the first live failure where `memory_tag.capture` existed but I did not consider it until Denis explicitly pointed at “other tools.”
+
+Behavior:
+
+```text
+memory-shaped situation
+  -> route_memory_candidate()
+  -> no_write | mnion | current_trace | durable_memory | kernel | engram
+```
+
+This is not keyword auto-capture. Words like `память`, `важно`, and `сохранить` should create routing pressure only. The live contour still judges meaning, durability, sensitivity, and consequence.
+
+Possible surfaces, in increasing depth:
+
+1. patch the Nira state-writing skill/rubric so Mnion is in the first routing table;
+2. add a tiny Hermes/Nira ingress reminder from kernel or config context;
+3. expose a Mneme `brief`/`review_due` tool so previous mnions create return pressure;
+4. later, a `pre_llm_call` plugin may inject a compact Mneme routing hint or active-mnion brief, but must not auto-ingest raw turns.
+
+Verification:
+
+- after a fresh session, a memory-routing question should mention or use Mnion when appropriate without Denis naming the MCP tool;
+- durable memory/kernel writes still require governance;
+- no raw transcript capture, no keyword listener, no hidden auto-promotion.
 
 ## Slice 0 — mnion capture organ prototype
 
