@@ -12,11 +12,10 @@ Done:
 - map relation to Pulse / StateLayer / Dream / Grow / kernel;
 - sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
 - implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
-- implement Slice 1 spike: runtime-neutral `cogito` generation-cycle spine with CLI, JSONL ledger, and Hermes adapter wrapper; parked from the active path because mnion TTL can first be driven by Mneme/mnion-call counts instead of all model generations;
-- implement Slice 2: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
+- implement Slice 1: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
-- implement Slice 3: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
-- implement Slice 4: minimal host-neutral `mnion.micro_consolidation` module that prepares the latest 10 active mnions for an agent review and returns one candidate contour or a structured error.
+- implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
+- implement Slice 3: minimal host-neutral `mnion.micro_consolidation` module that prepares the latest 10 active mnions for an agent review and returns one candidate contour or a structured error.
 
 Not done:
 
@@ -29,7 +28,7 @@ Not done:
 - no automatic durable write from micro-consolidation;
 - no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
 
-## Slice 4.5 — host-neutral memory-routing contract
+## Slice 4 — host-neutral memory-routing contract
 
 Goal: fix the first live failure without turning Mneme into a local Hermes hack or keyword-trigger script. `memory_tag.capture` existed, but the active contour did not consider it because no memory-orientation layer made the affordance salient.
 
@@ -105,39 +104,8 @@ Verification:
 - MCP surface exposes exactly one capture affordance;
 - no Hermes runtime config is changed automatically.
 
-## Slice 1 — cogito cycle spine prototype
 
-Goal: count actual model/generation opportunities without making Mneme depend on Hermes.
-
-Behavior:
-
-```text
-runtime adapter
-  -> CogitoEvent(runtime, adapter, movement_kind, cycle_kind, session_ref, turn_ref, model, counts)
-  -> append one JSONL cycle
-```
-
-Convenience surfaces:
-
-```text
-python3 -m cogito.cli record/latest/count-since
-scripts/cogito_hermes_hook.py  # shell-hook wrapper, no PYTHONPATH needed
-```
-
-Storage:
-
-```text
-$MNEME_STATE_DIR/cogito_cycles.jsonl
-```
-
-Verification:
-
-- neutral core has no Hermes imports;
-- Hermes `post_api_request` payload maps through adapter only;
-- `cycles_since` counts `model_generation`, not tool/delivery effects;
-- no live hook is enabled automatically.
-
-## Slice 2 — mnion lifecycle over Mneme call counts
+## Slice 1 — mnion lifecycle over Mneme call counts
 
 Goal: make mnions live/decay by actual Mneme/mnion use, not by wall-clock alone and not by every model generation.
 
@@ -157,7 +125,7 @@ Verification:
 - repeated capture/touch can update valence without promotion;
 - no dependency on Hermes hooks, Codex logs, or agent-runtime internals.
 
-## Slice 3 — pre-capture filter
+## Slice 2 — pre-capture filter
 
 Goal: prevent obvious duplicate mnions before they enter the active set.
 
@@ -176,7 +144,7 @@ Verification:
 - reinforcement refreshes call-life for active loading;
 - no embeddings, model calls, vector store, or durable promotion.
 
-## Slice 4 — micro-consolidation review packet
+## Slice 3 — micro-consolidation review packet
 
 Goal: prove that a small batch of active mnions can be handed to a host-provided live contour/agent without making Mneme depend on Hermes.
 
