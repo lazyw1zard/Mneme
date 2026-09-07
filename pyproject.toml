@@ -3,7 +3,7 @@ name = "mneme"
 version = "0.1.0"
 description = "Portable memory-tag capture primitives before durable memory consolidation."
 requires-python = ">=3.11"
-dependencies = ["mcp>=1.0"]
+dependencies = ["mcp>=1.0,<3"]
 
 [project.scripts]
 memory-tag-mcp = "mnion.mcp_server:main"

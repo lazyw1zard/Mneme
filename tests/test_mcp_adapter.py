@@ -8,6 +8,16 @@ def run(coro):
     return asyncio.run(coro)
 
 
+def input_schema(tool):
+    return getattr(tool, "input_schema", getattr(tool, "inputSchema", None))
+
+
+def tool_result_parts(result):
+    if hasattr(result, "structured_content"):
+        return result.content, result.structured_content
+    return result
+
+
 def test_mcp_server_exposes_single_memory_tag_capture_affordance(tmp_path):
     server = create_server(ledger_path=tmp_path / "mnions.jsonl")
 
@@ -20,7 +30,8 @@ def test_mcp_server_exposes_single_memory_tag_capture_affordance(tmp_path):
         "that may matter later but is not yet durable memory. "
         "Do not use for raw transcripts, secrets, or keyword-triggered saving."
     )
-    schema = tools[0].inputSchema
+    schema = input_schema(tools[0])
+    assert schema is not None
     assert "delta" in schema["properties"]
     assert "valence" in schema["properties"]
     assert "call_ttl" in schema["properties"]
@@ -51,7 +62,7 @@ def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
         "affect_hints": ["curiosity", "contour_shift"],
     }))
 
-    content_blocks, structured = result
+    content_blocks, structured = tool_result_parts(result)
     assert structured["ok"] is True
     assert structured["action"] == "created"
     assert structured["target_id"] == structured["record"]["id"]

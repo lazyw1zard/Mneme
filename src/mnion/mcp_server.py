@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server import MCPServer as FastMCP
+except ImportError:  # MCP Python SDK 1.x
+    from mcp.server.fastmcp import FastMCP
 
 from .core import (
     CONSOLIDATION_THRESHOLD,
