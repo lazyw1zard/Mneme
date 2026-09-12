@@ -1,5 +1,7 @@
 # Micro-Consolidation Slice
 
+Slice: 3.1
+
 Status: implemented minimal experiment
 
 This slice tests how Mneme can ask a host-provided live contour/agent to review a small active mnion packet without making Hermes part of the ontology.
@@ -56,7 +58,7 @@ Expected agent return shape:
 }
 ```
 
-`ConsolidatedContour` is an experimental object, not a promotion target.
+`ConsolidatedContour` is an experimental object, not a promotion target. It also should not be injected into the live agent as full context by default. The next slice should turn consolidation into a minimal pointer first.
 
 ## Failure behavior
 
@@ -77,6 +79,36 @@ error.reason = "invalid_agent_response"
 ```
 
 No ledger events are written in this first slice. Later slices may add a separate validated `review_apply` step for append-only `semantic_link`, `semantic_reinforcement`, `cluster_summary`, or `cooling` events.
+
+## Next slice: 3.2 Pointer
+
+The correct next object is not a merged mnion and not an active recollection with full context. It is a metamemory pointer:
+
+```text
+I know that I know this.
+```
+
+Planned flow:
+
+```text
+ConsolidatedContour
+  -> MemoryPointer(claim, route, source_handles, valence, confidence, guards)
+  -> agent ingress receives pointer only
+  -> agent explicitly requests full context/brief if it judges the pointer relevant
+```
+
+This preserves the core Mneme shape:
+
+```text
+metamemory pointer
+  + affect salience
+  + retrieval route
+  + confidence / warmth
+  + reconsolidation state
+  + governance boundary
+```
+
+Do not skip from 3.1 to rich active-return context. Pointer-first return is the minimal correct closure path.
 
 ## Portability boundary
 

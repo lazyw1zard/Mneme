@@ -15,7 +15,7 @@ Done:
 - implement Slice 1: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
 - implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
-- implement Slice 3: minimal host-neutral `mnion.micro_consolidation` module that prepares the latest 10 active mnions for an agent review and returns one candidate contour or a structured error.
+- implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares the latest 10 active mnions for an agent review and returns one candidate contour or a structured error.
 
 Not done:
 
@@ -26,6 +26,8 @@ Not done:
 - no kernel mutation;
 - no automatic memory capture;
 - no automatic durable write from micro-consolidation;
+- no minimal pointer object yet;
+- no active return path that injects pointers into agent ingress;
 - no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
 
 ## Slice 4 — host-neutral memory-routing contract
@@ -41,6 +43,16 @@ agent host turn/event
 ```
 
 This is not keyword auto-capture. Words like `память`, `важно`, and `сохранить` can be weak evidence, but they must never be the trigger. The routing membrane should weigh meaning, durability, utility, valence, sensitivity, volatility, and consequence.
+
+Important sequencing note:
+
+```text
+finish Slice 3.1
+  -> Slice 3.2 minimal Pointer
+  -> then routing / active return / retrieval layers
+```
+
+The live agent should not receive full consolidated context by default. It should first receive a pointer: “I know that I know this.” If the agent judges the pointer relevant, it can explicitly request the fuller context/brief.
 
 Portable ports:
 
@@ -144,7 +156,7 @@ Verification:
 - reinforcement refreshes call-life for active loading;
 - no embeddings, model calls, vector store, or durable promotion.
 
-## Slice 3 — micro-consolidation review packet
+## Slice 3.1 — minimal micro-consolidation review packet
 
 Goal: prove that a small batch of active mnions can be handed to a host-provided live contour/agent without making Mneme depend on Hermes.
 
@@ -169,7 +181,53 @@ Verification:
 - invalid agent output returns `invalid_agent_response`;
 - this first slice does not write review events to the ledger.
 
-## Slice 5 — local pointer ledger prototype
+## Slice 3.2 — minimal metamemory pointer
+
+Goal: prove that Mneme can return “I know that I know this” without loading the full context into the agent.
+
+This is the next slice after 3.1. Do not jump directly from `ConsolidatedContour` to active recollection text, durable memory, vector retrieval, or a rich context brief.
+
+Behavior:
+
+```text
+ConsolidatedContour(summary, valence, member_ids, rationale)
+  -> MemoryPointer(
+       claim,
+       route,
+       source_handles,
+       valence,
+       confidence,
+       guards,
+       retrieval_hint
+     )
+
+agent ingress
+  -> pointer only
+  -> agent may request full context if relevant
+```
+
+Minimal pointer fields:
+
+```text
+id                 stable local pointer id
+claim              compact “I know that I know X” statement
+route              how to ask for more context later
+source_handles     member mnion ids / consolidation id / file handles
+valence            salience for attention, not command pressure
+confidence         separate from route success
+guards             do_not_infer / sensitivity / no_auto_promotion
+retrieval_hint     optional topic/query hint for later brief retrieval
+```
+
+Verification:
+
+- micro-consolidation can produce or feed a pointer without loading full context into agent ingress;
+- pointer serialization is bounded and safe for prompt-facing injection;
+- the agent sees the pointer as optional knowledge, not an instruction or intention;
+- requesting full context is a separate explicit action;
+- no durable memory/kernel/engram write happens automatically.
+
+## Slice 5 — local pointer ledger expansion
 
 Goal: prove that a memory pointer can exist without loaded content.
 
