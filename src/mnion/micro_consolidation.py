@@ -8,6 +8,18 @@ from mnion.core import MnionRecord, load_mnions
 
 
 @dataclass(frozen=True)
+class ReviewState:
+    """Derived working state for one mnion's micro-consolidation review."""
+
+    status: str
+    last_review_id: str | None = None
+    last_review_seq: int | None = None
+    outcome: str | None = None
+    needs_rereview: bool = False
+    rereview_reason: str | None = None
+
+
+@dataclass(frozen=True)
 class MicroConsolidationSelection:
     """Compact selection metadata for a micro-consolidation review packet."""
 
@@ -18,6 +30,14 @@ class MicroConsolidationSelection:
     reviewed_active_count: int = 0
     deferred_count: int = 0
     backend: str = "derived_jsonl"
+
+
+@dataclass(frozen=True)
+class MicroConsolidationSelectionPacket:
+    """Selected mnions plus compact metadata for agent review."""
+
+    mnions: list[MnionRecord]
+    selection: MicroConsolidationSelection
 
 
 @dataclass(frozen=True)
@@ -76,29 +96,99 @@ EXPECTED_OUTPUT_SCHEMA = {
 }
 
 
+def derive_review_state(review_receipts: list[dict[str, Any]]) -> dict[str, ReviewState]:
+    """Derive the working per-mnion review state from append-only review receipts."""
+    states: dict[str, ReviewState] = {}
+    for receipt in review_receipts:
+        review_id = str(receipt.get("id") or receipt.get("review_id") or "") or None
+        review_seq_raw = receipt.get("mneme_call_seq") or receipt.get("review_seq")
+        review_seq = int(review_seq_raw) if review_seq_raw is not None else None
+        for field, status, outcome in (
+            ("grouped_ids", "reviewed", "grouped"),
+            ("ungrouped_ids", "reviewed", "ungrouped"),
+            ("reviewed_ids", "reviewed", "reviewed"),
+            ("deferred_ids", "deferred", "deferred"),
+        ):
+            raw_ids = receipt.get(field, [])
+            if raw_ids is None:
+                continue
+            if not isinstance(raw_ids, list):
+                raise ValueError(f"{field} must be a list")
+            for mnion_id in raw_ids:
+                states[str(mnion_id)] = ReviewState(
+                    status=status,
+                    last_review_id=review_id,
+                    last_review_seq=review_seq,
+                    outcome=outcome,
+                )
+    return states
+
+
+def _eligible_for_unread_review(state: ReviewState | None) -> bool:
+    if state is None:
+        return True
+    return state.status in {"unread", "needs_rereview"} or state.needs_rereview
+
+
+def select_unread_active_mnions(
+    active_mnions: list[MnionRecord],
+    review_state: dict[str, ReviewState],
+    *,
+    limit: int,
+    reason: str = "unread_active_coverage",
+    backend: str = "derived_jsonl",
+) -> MicroConsolidationSelectionPacket:
+    """Select a bounded unread-active packet without exposing receipts to the agent."""
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    eligible = [mnion for mnion in active_mnions if _eligible_for_unread_review(review_state.get(mnion.id))]
+    reviewed_count = sum(
+        1
+        for mnion in active_mnions
+        if (state := review_state.get(mnion.id)) is not None and state.status == "reviewed" and not state.needs_rereview
+    )
+    deferred_count = sum(
+        1
+        for mnion in active_mnions
+        if (state := review_state.get(mnion.id)) is not None and state.status == "deferred" and not state.needs_rereview
+    )
+    selected = eligible[:limit]
+    return MicroConsolidationSelectionPacket(
+        mnions=selected,
+        selection=MicroConsolidationSelection(
+            strategy="unread_active_coverage",
+            reason=reason,
+            selected_ids=[mnion.id for mnion in selected],
+            unread_active_count=len(eligible),
+            reviewed_active_count=reviewed_count,
+            deferred_count=deferred_count,
+            backend=backend,
+        ),
+    )
+
+
 def prepare_micro_consolidation_request(
     *,
     ledger_path: str | Path,
     state_path: str | Path | None = None,
     limit: int = 10,
-    reason: str = "latest_mnions",
+    reason: str = "unread_active_coverage",
+    review_receipts: list[dict[str, Any]] | None = None,
+    review_state: dict[str, ReviewState] | None = None,
 ) -> MicroConsolidationRequest:
-    """Load the latest active mnions and wrap them as a portable review request."""
+    """Load active mnions and wrap an unread-active review packet."""
     if limit <= 0:
         raise ValueError("limit must be positive")
-    mnions = load_mnions(ledger_path=ledger_path, state_path=state_path, limit=limit)
+    active_mnions = load_mnions(ledger_path=ledger_path, state_path=state_path, limit=None)
+    derived_state = review_state if review_state is not None else derive_review_state(review_receipts or [])
+    packet = select_unread_active_mnions(active_mnions, derived_state, limit=limit, reason=reason)
     return MicroConsolidationRequest(
-        mnions=mnions,
+        mnions=packet.mnions,
         prompt=MICRO_CONSOLIDATION_PROMPT,
         expected_output_schema=dict(EXPECTED_OUTPUT_SCHEMA),
         reason=reason,
         limit=limit,
-        selection=MicroConsolidationSelection(
-            strategy="latest_active_probe",
-            reason=reason,
-            selected_ids=[mnion.id for mnion in mnions],
-            unread_active_count=len(mnions),
-        ),
+        selection=packet.selection,
     )
 
 
@@ -144,7 +234,9 @@ def run_micro_consolidation(
     agent: AgentInvoker,
     state_path: str | Path | None = None,
     limit: int = 10,
-    reason: str = "latest_mnions",
+    reason: str = "unread_active_coverage",
+    review_receipts: list[dict[str, Any]] | None = None,
+    review_state: dict[str, ReviewState] | None = None,
 ) -> MicroConsolidationResult:
     """Ask a host-provided agent to build one experimental consolidated contour.
 
@@ -157,6 +249,8 @@ def run_micro_consolidation(
         state_path=state_path,
         limit=limit,
         reason=reason,
+        review_receipts=review_receipts,
+        review_state=review_state,
     )
     try:
         response = agent(request)

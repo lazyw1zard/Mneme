@@ -16,7 +16,7 @@ Done:
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
 - implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
 - implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares active mnions for an agent review and returns one candidate contour or a structured error;
-- decide the next 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by a compact review-state/read-model boundary.
+- complete the first 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by `ReviewState`, `derive_review_state()`, and compact selection metadata.
 
 Not done:
 
@@ -167,7 +167,9 @@ Behavior:
 
 ```text
 prepare_micro_consolidation_request(limit=10)
-  -> latest active mnions
+  -> active mnions
+  -> derived review_state
+  -> unread-active coverage packet
   -> portable prompt + expected schema
 
 run_micro_consolidation(agent=callable)
@@ -178,7 +180,7 @@ run_micro_consolidation(agent=callable)
 
 Verification:
 
-- latest 10 active mnions are selected chronologically inside the selected window;
+- bounded unread active mnions are selected through review-state coverage;
 - successful agent callback returns one candidate contour;
 - failing agent callback returns `agent_call_failed`;
 - invalid agent output returns `invalid_agent_response`;

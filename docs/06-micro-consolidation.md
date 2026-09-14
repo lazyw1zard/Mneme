@@ -2,11 +2,11 @@
 
 Slice: 3.1
 
-Status: implemented minimal experiment
+Status: implemented logical minimum for unread-active review packets
 
 This slice tests how Mneme can ask a host-provided live contour/agent to review a small active mnion packet without making Hermes part of the ontology.
 
-The current implementation began with a deliberately provisional `latest active` packet. The accepted direction is different: unread-active coverage, compact agent-facing packets, and an internal read model that may use SQLite without exposing SQL to the agent.
+The implementation began with a deliberately provisional `latest active` packet. The current logical minimum uses unread-active coverage, compact agent-facing packets, and a derived review-state boundary that may later be materialized in SQLite without exposing SQL to the agent.
 
 ## Agentic call
 
@@ -15,7 +15,7 @@ pre-capture filtering can catch local duplicates,
 but semantic confirmation needs a bounded live review pass.
 ```
 
-The slice is deliberately small:
+The first probe was deliberately small:
 
 ```text
 latest active mnions
@@ -24,7 +24,7 @@ latest active mnions
   -> one ConsolidatedContour(summary, valence, member_ids, rationale)
 ```
 
-Replacement policy for completing 3.1:
+Current 3.1 behavior:
 
 ```text
 active mnions
@@ -53,11 +53,12 @@ result = run_micro_consolidation(
 The agent receives a `MicroConsolidationRequest`:
 
 ```text
-mnions                  latest active MnionRecord objects, default limit 10
+mnions                  bounded unread active MnionRecord objects, default limit 10
 prompt                  portable review prompt
 expected_output_schema  summary / valence / member_ids / rationale
 reason                  why the review packet was prepared
 limit                   requested packet size
+selection               compact selection metadata / coverage counters
 ```
 
 Expected agent return shape:
@@ -117,6 +118,33 @@ MicroConsolidationSelection(
   deferred_count,
   backend="derived_jsonl" | "sqlite_read_model"
 )
+```
+
+Implemented minimal API:
+
+```python
+from mnion.micro_consolidation import (
+    derive_review_state,
+    prepare_micro_consolidation_request,
+    select_unread_active_mnions,
+)
+
+review_state = derive_review_state(review_receipts)
+packet = select_unread_active_mnions(active_mnions, review_state, limit=10)
+request = prepare_micro_consolidation_request(
+    ledger_path="/path/to/mnions.jsonl",
+    review_receipts=review_receipts,
+    limit=10,
+)
+```
+
+Current statuses:
+
+```text
+missing state   -> unread
+reviewed        -> skipped by normal selection
+deferred        -> skipped by normal selection
+needs_rereview  -> eligible
 ```
 
 ## SQLite/read-model boundary
@@ -223,22 +251,24 @@ MCP prompts/sampling are useful adapter surfaces, but not required by this core 
 Implemented tests cover:
 
 ```text
-prepare request returns latest 10 active mnions
+prepare request returns bounded unread active mnions
 run_micro_consolidation calls agent and returns a contour
 agent exceptions become structured errors
 invalid response shapes become structured errors
 first slice does not write review events to the ledger
+review-state derivation marks reviewed and deferred mnions
+latest receipt wins for the same mnion
+unread-active selector skips reviewed/deferred mnions and bounds packets
+request preparation uses review receipts to skip reviewed mnions
 ```
 
 Next tests should cover:
 
 ```text
-review-state derivation marks unseen active mnions unread
-reviewed active mnions are skipped by normal selection
-deferred/needs_rereview are handled explicitly
-selection is bounded by packet limit
-selection metadata reports coverage counters
-agent-facing request does not include receipts, tables, or SQL rows
+needs_rereview caused by reinforcement after review
+high-valence / high-reinforcement priority bump
+agent-facing request does not include receipt bodies, tables, or SQL rows
+serialized packet character/token budget
 ```
 
 Smoke receipt from a temporary ledger:

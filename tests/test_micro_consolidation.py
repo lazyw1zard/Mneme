@@ -6,8 +6,11 @@ from mnion.micro_consolidation import (
     ConsolidatedContour,
     MicroConsolidationError,
     MicroConsolidationSelection,
+    ReviewState,
+    derive_review_state,
     prepare_micro_consolidation_request,
     run_micro_consolidation,
+    select_unread_active_mnions,
 )
 
 
@@ -32,16 +35,19 @@ def _capture_many(ledger, state, count):
     return records
 
 
-def test_prepare_micro_consolidation_request_returns_latest_ten_mnions(tmp_path):
+def test_prepare_micro_consolidation_request_returns_oldest_unread_active_mnions(tmp_path):
     ledger = tmp_path / "mnions.jsonl"
     state = tmp_path / "mneme_seq.json"
     records = _capture_many(ledger, state, 12)
 
     request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, limit=10)
 
-    assert request.reason == "latest_mnions"
+    assert request.reason == "unread_active_coverage"
     assert request.limit == 10
-    assert [mnion.id for mnion in request.mnions] == [record.id for record in records[-10:]]
+    assert [mnion.id for mnion in request.mnions] == [record.id for record in records[:10]]
+    assert request.selection.strategy == "unread_active_coverage"
+    assert request.selection.selected_ids == [record.id for record in records[:10]]
+    assert request.selection.unread_active_count == 12
     assert "Find semantically close mnions" in request.prompt
     assert "summary" in request.expected_output_schema
     assert "valence" in request.expected_output_schema
@@ -67,18 +73,85 @@ def test_selection_metadata_can_describe_unread_active_coverage():
     assert selection.backend == "derived_jsonl"
 
 
-def test_prepare_micro_consolidation_request_attaches_compact_selection_metadata(tmp_path):
+def test_derive_review_state_marks_reviewed_and_deferred_mnions():
+    review_state = derive_review_state(
+        [
+            {
+                "id": "review_1",
+                "mneme_call_seq": 12,
+                "grouped_ids": ["mnion_grouped"],
+                "ungrouped_ids": ["mnion_ungrouped"],
+                "deferred_ids": ["mnion_deferred"],
+            }
+        ]
+    )
+
+    assert review_state["mnion_grouped"] == ReviewState(
+        status="reviewed",
+        last_review_id="review_1",
+        last_review_seq=12,
+        outcome="grouped",
+    )
+    assert review_state["mnion_ungrouped"].status == "reviewed"
+    assert review_state["mnion_ungrouped"].outcome == "ungrouped"
+    assert review_state["mnion_deferred"].status == "deferred"
+    assert review_state["mnion_deferred"].outcome == "deferred"
+
+
+def test_derive_review_state_uses_latest_receipt_for_same_mnion():
+    review_state = derive_review_state(
+        [
+            {"id": "review_1", "mneme_call_seq": 1, "deferred_ids": ["mnion_a"]},
+            {"id": "review_2", "mneme_call_seq": 2, "grouped_ids": ["mnion_a"]},
+        ]
+    )
+
+    assert review_state["mnion_a"] == ReviewState(
+        status="reviewed",
+        last_review_id="review_2",
+        last_review_seq=2,
+        outcome="grouped",
+    )
+
+
+def test_select_unread_active_mnions_skips_reviewed_and_bounds_packet(tmp_path):
+    ledger = tmp_path / "mnions.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    records = _capture_many(ledger, state, 5)
+    review_state = {
+        records[0].id: ReviewState(status="reviewed", last_review_id="review_1", outcome="grouped"),
+        records[3].id: ReviewState(status="deferred", last_review_id="review_1", outcome="deferred"),
+    }
+
+    packet = select_unread_active_mnions(records, review_state, limit=2)
+
+    assert [mnion.id for mnion in packet.mnions] == [records[1].id, records[2].id]
+    assert packet.selection.strategy == "unread_active_coverage"
+    assert packet.selection.reason == "unread_active_coverage"
+    assert packet.selection.selected_ids == [records[1].id, records[2].id]
+    assert packet.selection.unread_active_count == 3
+    assert packet.selection.reviewed_active_count == 1
+    assert packet.selection.deferred_count == 1
+    assert packet.selection.backend == "derived_jsonl"
+
+
+def test_prepare_micro_consolidation_request_uses_review_receipts_to_skip_reviewed(tmp_path):
     ledger = tmp_path / "mnions.jsonl"
     state = tmp_path / "mneme_seq.json"
     records = _capture_many(ledger, state, 4)
 
-    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, limit=3)
+    request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        limit=10,
+        review_receipts=[{"id": "review_1", "grouped_ids": [records[0].id, records[2].id]}],
+    )
 
-    assert request.selection.strategy == "latest_active_probe"
-    assert request.selection.reason == "latest_mnions"
-    assert request.selection.selected_ids == [record.id for record in records[-3:]]
-    assert request.selection.unread_active_count == 3
-    assert request.selection.reviewed_active_count == 0
+    assert [mnion.id for mnion in request.mnions] == [records[1].id, records[3].id]
+    assert request.selection.strategy == "unread_active_coverage"
+    assert request.selection.selected_ids == [records[1].id, records[3].id]
+    assert request.selection.unread_active_count == 2
+    assert request.selection.reviewed_active_count == 2
     assert request.selection.deferred_count == 0
     assert request.selection.backend == "derived_jsonl"
 

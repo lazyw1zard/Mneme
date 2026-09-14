@@ -4,7 +4,7 @@
 
 **Goal:** Replace the provisional latest-active mnion selection with token-cheap unread-active coverage backed by an internal read model that can use SQLite without exposing SQL to agents.
 
-**Status:** Task 1 completed: `MicroConsolidationSelection` now exists and `MicroConsolidationRequest` carries compact selection metadata for the current `latest_active_probe` behavior.
+**Status:** Tasks 1-3 completed: `MicroConsolidationSelection`, `ReviewState`, `derive_review_state()`, and `select_unread_active_mnions()` now exist. `MicroConsolidationRequest` uses unread-active coverage and carries compact selection metadata.
 
 **Architecture:** Mnion records and review receipts remain inspectable append-only evidence. A derived read model, likely SQLite, indexes active/unread/deferred/needs-rereview state and prepares compact semantic packets for agent review. Agents never query tables; they use compact paws/tools that return bounded review packets and coverage summaries.
 
@@ -130,6 +130,8 @@ Expected: pass.
 
 ### Task 2: Add review-state derivation over receipts
 
+Status: completed.
+
 **Objective:** Build the logical read/unread state without adding persistent SQLite yet.
 
 **Files:**
@@ -167,6 +169,8 @@ uv run --with pytest pytest -q
 ```
 
 ### Task 3: Replace latest-active selection with unread-active coverage
+
+Status: completed.
 
 **Objective:** Prepare review packets from unread active mnions, not newest active mnions.
 
