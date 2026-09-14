@@ -5,6 +5,7 @@ from mnion.core import MnionCaptureRequest, capture_mnion
 from mnion.micro_consolidation import (
     ConsolidatedContour,
     MicroConsolidationError,
+    MicroConsolidationSelection,
     prepare_micro_consolidation_request,
     run_micro_consolidation,
 )
@@ -44,6 +45,42 @@ def test_prepare_micro_consolidation_request_returns_latest_ten_mnions(tmp_path)
     assert "Find semantically close mnions" in request.prompt
     assert "summary" in request.expected_output_schema
     assert "valence" in request.expected_output_schema
+
+
+def test_selection_metadata_can_describe_unread_active_coverage():
+    selection = MicroConsolidationSelection(
+        strategy="unread_active_coverage",
+        reason="backlog_pressure",
+        selected_ids=["mnion_a", "mnion_b"],
+        unread_active_count=7,
+        reviewed_active_count=3,
+        deferred_count=1,
+        backend="derived_jsonl",
+    )
+
+    assert selection.strategy == "unread_active_coverage"
+    assert selection.reason == "backlog_pressure"
+    assert selection.selected_ids == ["mnion_a", "mnion_b"]
+    assert selection.unread_active_count == 7
+    assert selection.reviewed_active_count == 3
+    assert selection.deferred_count == 1
+    assert selection.backend == "derived_jsonl"
+
+
+def test_prepare_micro_consolidation_request_attaches_compact_selection_metadata(tmp_path):
+    ledger = tmp_path / "mnions.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    records = _capture_many(ledger, state, 4)
+
+    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, limit=3)
+
+    assert request.selection.strategy == "latest_active_probe"
+    assert request.selection.reason == "latest_mnions"
+    assert request.selection.selected_ids == [record.id for record in records[-3:]]
+    assert request.selection.unread_active_count == 3
+    assert request.selection.reviewed_active_count == 0
+    assert request.selection.deferred_count == 0
+    assert request.selection.backend == "derived_jsonl"
 
 
 def test_run_micro_consolidation_calls_agent_and_returns_contour(tmp_path):

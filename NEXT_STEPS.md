@@ -15,12 +15,13 @@ Done:
 - implement Slice 1: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
 - implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
-- implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares the latest 10 active mnions for an agent review and returns one candidate contour or a structured error.
+- implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares active mnions for an agent review and returns one candidate contour or a structured error;
+- decide the next 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by a compact review-state/read-model boundary.
 
 Not done:
 
 - no daemon;
-- no database;
+- no prompt-facing database/table access;
 - no vector store;
 - no auto-ingestion;
 - no kernel mutation;
@@ -29,6 +30,8 @@ Not done:
 - no minimal pointer object yet;
 - no active return path that injects pointers into agent ingress;
 - no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
+
+Storage note: SQLite is acceptable as an internal read-model / queue substrate when it reduces IO, token load, and selection complexity. It must not become the agent-facing interface or Mneme's ontology: agents get compact paws/tools, not SQL/tables.
 
 ## Slice 4 — host-neutral memory-routing contract
 
@@ -180,6 +183,98 @@ Verification:
 - failing agent callback returns `agent_call_failed`;
 - invalid agent output returns `invalid_agent_response`;
 - this first slice does not write review events to the ledger.
+
+Important correction: `latest active mnions` is only the implemented probe shape, not the accepted selection policy. The real 3.1 completion path is email-like unread-active coverage.
+
+## Slice 3.1b — unread-active coverage selection
+
+Goal: replace the provisional `latest active` packet with a bounded fair coverage selector that does not starve older active mnions.
+
+Behavior:
+
+```text
+active mnions
+  -> review_state/read-model
+  -> unread | reviewed | deferred | needs_rereview
+  -> bounded MicroConsolidationSelection packet
+  -> agent reviews only selected compact semantic material
+```
+
+Selection policy:
+
+```text
+first pass: all active unread mnions, chunked by limit
+later passes: unread active mnions plus explicit needs_rereview
+priority bump: high valence / high reinforcement / linked pressure
+fairness: oldest unread should not be permanently skipped
+```
+
+The agent must not compare receipt ids manually, inspect tables, or query SQL. Selection is prepared by core code or an MCP/tool adapter and returned as a compact packet.
+
+Minimal agent-facing shape:
+
+```text
+MicroConsolidationSelection(
+  strategy="unread_active_coverage",
+  reason,
+  selected_ids,
+  unread_active_count,
+  reviewed_active_count,
+  deferred_count,
+  backend="derived_jsonl" | "sqlite_read_model"
+)
+```
+
+Token/time invariant:
+
+```text
+the agent receives selected mnions + compact selection metadata,
+not the whole mnion ledger,
+not all receipts,
+not SQL rows.
+```
+
+Implementation plan: `docs/plans/2026-09-14-micro-consolidation-selection-read-model.md`.
+
+## Slice 3.1c — internal read model and queue substrate
+
+Goal: allow SQLite where it simplifies active/unread selection, pressure checks, and future queue work, without making Mneme database-first.
+
+Architecture:
+
+```text
+append-only mnion records / review receipts
+  -> reconstructable read model
+  -> optional SQLite materialization
+  -> compact paws/tools for agent-facing use
+```
+
+Allowed SQLite responsibilities:
+
+```text
+active/unread/deferred/needs_rereview index
+review_state lookup
+pressure counters
+pending consolidation queue
+receipt item lookup for audit/rebuild
+```
+
+Forbidden SQLite responsibilities:
+
+```text
+agent-facing SQL interface
+hidden semantic memory ontology
+automatic durable promotion
+automatic kernel/engram writes
+automatic model calls
+```
+
+Worker rule:
+
+```text
+model-free index/queue worker may come first;
+semantic consolidation worker is later and requires explicit governance.
+```
 
 ## Slice 3.2 — minimal metamemory pointer
 

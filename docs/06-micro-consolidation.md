@@ -6,6 +6,8 @@ Status: implemented minimal experiment
 
 This slice tests how Mneme can ask a host-provided live contour/agent to review a small active mnion packet without making Hermes part of the ontology.
 
+The current implementation began with a deliberately provisional `latest active` packet. The accepted direction is different: unread-active coverage, compact agent-facing packets, and an internal read model that may use SQLite without exposing SQL to the agent.
+
 ## Agentic call
 
 ```text
@@ -20,6 +22,17 @@ latest active mnions
   -> portable MicroConsolidationRequest
   -> host-provided agent callable
   -> one ConsolidatedContour(summary, valence, member_ids, rationale)
+```
+
+Replacement policy for completing 3.1:
+
+```text
+active mnions
+  -> review_state/read-model
+  -> unread active coverage packet
+  -> compact MicroConsolidationRequest
+  -> host-provided agent callable
+  -> one candidate ConsolidatedContour or structured no-candidate/error
 ```
 
 It does not write durable memory, kernel notes, engrams, embeddings, or graph nodes.
@@ -59,6 +72,85 @@ Expected agent return shape:
 ```
 
 `ConsolidatedContour` is an experimental object, not a promotion target. It also should not be injected into the live agent as full context by default. The next slice should turn consolidation into a minimal pointer first.
+
+## Selection and token budget
+
+The real selection policy is email-like coverage, not newest-N recency:
+
+```text
+first pass: all active unread mnions, chunked by packet limit
+later passes: unread active mnions plus explicit needs_rereview
+priority bump: high valence / high reinforcement / linked pressure
+fairness: oldest unread active mnions must not starve
+```
+
+The agent should receive only:
+
+```text
+selected compact mnions
+selection reason
+coverage counters
+expected output schema
+```
+
+The agent should not receive:
+
+```text
+full mnion ledger
+all review receipts
+SQLite rows
+SQL query access
+manual id-diff work
+```
+
+This keeps review passes short, bounded, and semantic. Storage/index work belongs behind compact paws/tools.
+
+Minimal selection metadata:
+
+```text
+MicroConsolidationSelection(
+  strategy="unread_active_coverage",
+  reason,
+  selected_ids,
+  unread_active_count,
+  reviewed_active_count,
+  deferred_count,
+  backend="derived_jsonl" | "sqlite_read_model"
+)
+```
+
+## SQLite/read-model boundary
+
+SQLite is allowed as an internal read model when it makes active/unread selection, pressure checks, and queue maintenance simpler. It must remain reconstructable from append-only evidence:
+
+```text
+mnion records + review receipts
+  -> derived read model
+  -> optional SQLite materialization
+  -> compact tool packet
+  -> agent semantic review
+```
+
+SQLite may store:
+
+```text
+review_state
+active/unread/deferred/needs_rereview indexes
+pressure counters
+pending consolidation queue
+review receipt items for fast audit lookup
+```
+
+SQLite must not become:
+
+```text
+agent-facing SQL interface
+hidden semantic ontology
+automatic promotion system
+automatic model-calling worker
+```
+
+The first worker, if added, should be model-free: maintain the read model and queue only. Semantic consolidation remains an explicit agent/tool action until the pointer, receipt, cooling, and governance boundaries are stable.
 
 ## Failure behavior
 
@@ -136,6 +228,17 @@ run_micro_consolidation calls agent and returns a contour
 agent exceptions become structured errors
 invalid response shapes become structured errors
 first slice does not write review events to the ledger
+```
+
+Next tests should cover:
+
+```text
+review-state derivation marks unseen active mnions unread
+reviewed active mnions are skipped by normal selection
+deferred/needs_rereview are handled explicitly
+selection is bounded by packet limit
+selection metadata reports coverage counters
+agent-facing request does not include receipts, tables, or SQL rows
 ```
 
 Smoke receipt from a temporary ledger:

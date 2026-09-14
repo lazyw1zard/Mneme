@@ -154,14 +154,24 @@ Future options:
 
 1. `active_mnions.jsonl` sidecar updated by sweep;
 2. archived expired records moved to `mnions.archive.jsonl`;
-3. small SQLite index only after JSONL becomes too slow;
+3. small SQLite read model when JSONL scanning, review-state derivation, or agent packet selection becomes too slow/heavy;
 4. compact active brief cache generated from active records.
 
 Decision rule:
 
 ```text
-only optimize storage when measured IO or token pressure appears
+optimize storage when measured IO, token pressure, or selection/read-model complexity appears
 ```
+
+SQLite boundary:
+
+```text
+append-only records / receipts = audit evidence
+SQLite                     = internal read model / queue substrate
+agent-facing tools         = compact semantic paws, never SQL
+```
+
+SQLite is allowed earlier than a full database migration if it prevents agents from doing table/receipt/id bookkeeping in context. It must remain reconstructable from inspectable local evidence.
 
 ### B. Touch/reinforcement
 
@@ -245,7 +255,8 @@ Do not split axes until touch/review behavior proves the need.
 
 ## Current non-goals
 
-- no full Mneme database;
+- no full semantic Mneme database;
+- no agent-facing SQL/table work;
 - no raw transcript ingestion;
 - no automatic kernel/engram writes;
 - no Hermes/Codex dependency for lifecycle;

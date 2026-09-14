@@ -8,6 +8,19 @@ from mnion.core import MnionRecord, load_mnions
 
 
 @dataclass(frozen=True)
+class MicroConsolidationSelection:
+    """Compact selection metadata for a micro-consolidation review packet."""
+
+    strategy: str
+    reason: str
+    selected_ids: list[str]
+    unread_active_count: int
+    reviewed_active_count: int = 0
+    deferred_count: int = 0
+    backend: str = "derived_jsonl"
+
+
+@dataclass(frozen=True)
 class MicroConsolidationRequest:
     """Portable review packet for a host-provided live contour/agent."""
 
@@ -16,6 +29,7 @@ class MicroConsolidationRequest:
     expected_output_schema: dict[str, str]
     reason: str
     limit: int
+    selection: MicroConsolidationSelection
 
 
 @dataclass(frozen=True)
@@ -72,12 +86,19 @@ def prepare_micro_consolidation_request(
     """Load the latest active mnions and wrap them as a portable review request."""
     if limit <= 0:
         raise ValueError("limit must be positive")
+    mnions = load_mnions(ledger_path=ledger_path, state_path=state_path, limit=limit)
     return MicroConsolidationRequest(
-        mnions=load_mnions(ledger_path=ledger_path, state_path=state_path, limit=limit),
+        mnions=mnions,
         prompt=MICRO_CONSOLIDATION_PROMPT,
         expected_output_schema=dict(EXPECTED_OUTPUT_SCHEMA),
         reason=reason,
         limit=limit,
+        selection=MicroConsolidationSelection(
+            strategy="latest_active_probe",
+            reason=reason,
+            selected_ids=[mnion.id for mnion in mnions],
+            unread_active_count=len(mnions),
+        ),
     )
 
 
