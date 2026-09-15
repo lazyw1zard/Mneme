@@ -166,7 +166,7 @@ Goal: prove that a small batch of active mnions can be handed to a host-provided
 Behavior:
 
 ```text
-prepare_micro_consolidation_request(limit=10)
+prepare_micro_consolidation_request(packet_limit=10)
   -> active mnions
   -> derived review_state
   -> unread-active coverage packet
@@ -205,7 +205,7 @@ active mnions
 Selection policy:
 
 ```text
-first pass: all active unread mnions, chunked by limit
+first pass: all active unread mnions, chunked by packet_limit
 later passes: unread active mnions plus explicit needs_rereview
 priority bump: high valence / high reinforcement / linked pressure
 fairness: oldest unread should not be permanently skipped

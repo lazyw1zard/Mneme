@@ -48,7 +48,7 @@ class MicroConsolidationRequest:
     prompt: str
     expected_output_schema: dict[str, str]
     reason: str
-    limit: int
+    packet_limit: int
     selection: MicroConsolidationSelection
 
 
@@ -100,6 +100,9 @@ def derive_review_state(review_receipts: list[dict[str, Any]]) -> dict[str, Revi
     """Derive the working per-mnion review state from append-only review receipts."""
     states: dict[str, ReviewState] = {}
     for receipt in review_receipts:
+        # Receipts are the audit/evidence layer. This function builds the
+        # cheap working read-model from them so the live agent never has to
+        # compare receipt ids against active mnions in prompt context.
         review_id = str(receipt.get("id") or receipt.get("review_id") or "") or None
         review_seq_raw = receipt.get("mneme_call_seq") or receipt.get("review_seq")
         review_seq = int(review_seq_raw) if review_seq_raw is not None else None
@@ -134,14 +137,20 @@ def select_unread_active_mnions(
     active_mnions: list[MnionRecord],
     review_state: dict[str, ReviewState],
     *,
-    limit: int,
+    packet_limit: int,
     reason: str = "unread_active_coverage",
     backend: str = "derived_jsonl",
 ) -> MicroConsolidationSelectionPacket:
     """Select a bounded unread-active packet without exposing receipts to the agent."""
-    if limit <= 0:
-        raise ValueError("limit must be positive")
+    if packet_limit <= 0:
+        raise ValueError("packet_limit must be positive")
+
+    # The active pool has already been loaded in full. packet_limit is only
+    # the review-queue step size, not a visibility filter over active mnions.
     eligible = [mnion for mnion in active_mnions if _eligible_for_unread_review(review_state.get(mnion.id))]
+
+    # Keep counters beside the selected ids so the agent sees backlog shape
+    # without seeing receipts, SQL rows, or the whole ledger.
     reviewed_count = sum(
         1
         for mnion in active_mnions
@@ -152,7 +161,7 @@ def select_unread_active_mnions(
         for mnion in active_mnions
         if (state := review_state.get(mnion.id)) is not None and state.status == "deferred" and not state.needs_rereview
     )
-    selected = eligible[:limit]
+    selected = eligible[:packet_limit]
     return MicroConsolidationSelectionPacket(
         mnions=selected,
         selection=MicroConsolidationSelection(
@@ -171,23 +180,29 @@ def prepare_micro_consolidation_request(
     *,
     ledger_path: str | Path,
     state_path: str | Path | None = None,
-    limit: int = 10,
+    packet_limit: int = 10,
     reason: str = "unread_active_coverage",
     review_receipts: list[dict[str, Any]] | None = None,
     review_state: dict[str, ReviewState] | None = None,
 ) -> MicroConsolidationRequest:
     """Load active mnions and wrap an unread-active review packet."""
-    if limit <= 0:
-        raise ValueError("limit must be positive")
+    if packet_limit <= 0:
+        raise ValueError("packet_limit must be positive")
+
+    # First read all active mnions. Fair coverage depends on seeing the whole
+    # active set; packet_limit is applied only after review_state selection.
     active_mnions = load_mnions(ledger_path=ledger_path, state_path=state_path, limit=None)
+
+    # A future SQLite read-model can provide review_state directly. Until then,
+    # receipts are folded into the same shape here, preserving the API boundary.
     derived_state = review_state if review_state is not None else derive_review_state(review_receipts or [])
-    packet = select_unread_active_mnions(active_mnions, derived_state, limit=limit, reason=reason)
+    packet = select_unread_active_mnions(active_mnions, derived_state, packet_limit=packet_limit, reason=reason)
     return MicroConsolidationRequest(
         mnions=packet.mnions,
         prompt=MICRO_CONSOLIDATION_PROMPT,
         expected_output_schema=dict(EXPECTED_OUTPUT_SCHEMA),
         reason=reason,
-        limit=limit,
+        packet_limit=packet_limit,
         selection=packet.selection,
     )
 
@@ -233,7 +248,7 @@ def run_micro_consolidation(
     ledger_path: str | Path,
     agent: AgentInvoker,
     state_path: str | Path | None = None,
-    limit: int = 10,
+    packet_limit: int = 10,
     reason: str = "unread_active_coverage",
     review_receipts: list[dict[str, Any]] | None = None,
     review_state: dict[str, ReviewState] | None = None,
@@ -247,7 +262,7 @@ def run_micro_consolidation(
     request = prepare_micro_consolidation_request(
         ledger_path=ledger_path,
         state_path=state_path,
-        limit=limit,
+        packet_limit=packet_limit,
         reason=reason,
         review_receipts=review_receipts,
         review_state=review_state,

@@ -46,7 +46,7 @@ result = run_micro_consolidation(
     ledger_path="/path/to/mnions.jsonl",
     state_path="/path/to/mneme_seq.json",
     agent=my_agent_callable,
-    limit=10,
+    packet_limit=10,
 )
 ```
 
@@ -57,7 +57,7 @@ mnions                  bounded unread active MnionRecord objects, default limit
 prompt                  portable review prompt
 expected_output_schema  summary / valence / member_ids / rationale
 reason                  why the review packet was prepared
-limit                   requested packet size
+packet_limit            requested review packet size / queue step
 selection               compact selection metadata / coverage counters
 ```
 
@@ -130,11 +130,11 @@ from mnion.micro_consolidation import (
 )
 
 review_state = derive_review_state(review_receipts)
-packet = select_unread_active_mnions(active_mnions, review_state, limit=10)
+packet = select_unread_active_mnions(active_mnions, review_state, packet_limit=10)
 request = prepare_micro_consolidation_request(
     ledger_path="/path/to/mnions.jsonl",
     review_receipts=review_receipts,
-    limit=10,
+    packet_limit=10,
 )
 ```
 

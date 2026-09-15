@@ -10,6 +10,8 @@
 
 **Tech Stack:** Python stdlib, JSONL audit records, SQLite via `sqlite3` when materialized, pytest via `uv run --with pytest pytest`.
 
+**Code-reading convention:** Main logical code blocks should carry short comments that explain the boundary or transition being performed: audit receipts -> read model, active pool -> review queue, packet_limit as queue step, compact agent packet vs hidden ledger/SQL. Avoid noisy line-by-line paraphrase.
+
 ---
 
 ## Architectural decisions
@@ -185,7 +187,7 @@ Test that:
 ```text
 active reviewed mnions are skipped
 active unread mnions are selected
-selection is bounded by limit
+selection is bounded by packet_limit
 oldest unread are selected first for fair coverage
 high-valence unread can be priority-bumped if implemented in this slice
 ```
@@ -197,7 +199,7 @@ def select_unread_active_mnions(
     active_mnions: list[MnionRecord],
     review_state: dict[str, ReviewState],
     *,
-    limit: int,
+    packet_limit: int,
 ) -> MicroConsolidationSelectionPacket:
     ...
 ```
@@ -207,7 +209,7 @@ First implementation may be:
 ```text
 high-valence unread first
 then oldest unread
-limit by count
+packet_limit by count
 ```
 
 **Step 3: Preserve agent compactness**

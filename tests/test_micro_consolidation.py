@@ -40,10 +40,10 @@ def test_prepare_micro_consolidation_request_returns_oldest_unread_active_mnions
     state = tmp_path / "mneme_seq.json"
     records = _capture_many(ledger, state, 12)
 
-    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, limit=10)
+    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, packet_limit=10)
 
     assert request.reason == "unread_active_coverage"
-    assert request.limit == 10
+    assert request.packet_limit == 10
     assert [mnion.id for mnion in request.mnions] == [record.id for record in records[:10]]
     assert request.selection.strategy == "unread_active_coverage"
     assert request.selection.selected_ids == [record.id for record in records[:10]]
@@ -123,7 +123,7 @@ def test_select_unread_active_mnions_skips_reviewed_and_bounds_packet(tmp_path):
         records[3].id: ReviewState(status="deferred", last_review_id="review_1", outcome="deferred"),
     }
 
-    packet = select_unread_active_mnions(records, review_state, limit=2)
+    packet = select_unread_active_mnions(records, review_state, packet_limit=2)
 
     assert [mnion.id for mnion in packet.mnions] == [records[1].id, records[2].id]
     assert packet.selection.strategy == "unread_active_coverage"
@@ -143,7 +143,7 @@ def test_prepare_micro_consolidation_request_uses_review_receipts_to_skip_review
     request = prepare_micro_consolidation_request(
         ledger_path=ledger,
         state_path=state,
-        limit=10,
+        packet_limit=10,
         review_receipts=[{"id": "review_1", "grouped_ids": [records[0].id, records[2].id]}],
     )
 
@@ -171,7 +171,7 @@ def test_run_micro_consolidation_calls_agent_and_returns_contour(tmp_path):
             "rationale": "They both describe the same background pressure from different angles.",
         }
 
-    result = run_micro_consolidation(ledger_path=ledger, state_path=state, agent=fake_agent, limit=10)
+    result = run_micro_consolidation(ledger_path=ledger, state_path=state, agent=fake_agent, packet_limit=10)
 
     assert result.ok is True
     assert result.error is None
