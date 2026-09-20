@@ -17,7 +17,8 @@ Done:
 - implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
 - implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares active mnions for an agent review and returns one candidate contour or a structured error;
 - complete the first 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by `ReviewState`, `derive_review_state()`, and compact selection metadata;
-- implement the 3.1 receipt closure: `apply_micro_consolidation_review()` appends a review receipt JSONL and `load_micro_consolidation_review_receipts()` lets the next selection skip reviewed mnions without exposing receipts to the agent.
+- implement the 3.1 receipt closure: `apply_micro_consolidation_review()` appends a review receipt JSONL and `load_micro_consolidation_review_receipts()` lets the next selection skip reviewed mnions without exposing receipts to the agent;
+- implement Slice 3.2 minimal pointer shape: `MemoryPointer`, `pointer_from_micro_consolidation_receipt()`, and bounded `pointer_ingress_hint()` that returns optional knowledge without loading context.
 
 Not done:
 
@@ -28,7 +29,7 @@ Not done:
 - no kernel mutation;
 - no automatic memory capture;
 - no automatic durable memory/kernel write from micro-consolidation; explicit review receipts are audit/read-state evidence only;
-- no minimal pointer object yet;
+- no pointer ledger or retrieval attempts yet;
 - no active return path that injects pointers into agent ingress;
 - no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
 
@@ -353,8 +354,8 @@ retrieval_hint     optional topic/query hint for later brief retrieval
 
 Verification:
 
-- micro-consolidation can produce or feed a pointer without loading full context into agent ingress;
-- pointer serialization is bounded and safe for prompt-facing injection;
+- `pointer_from_micro_consolidation_receipt()` builds a guarded `MemoryPointer` from a review receipt without loading source mnion bodies;
+- `pointer_ingress_hint()` renders bounded optional knowledge for prompt-facing ingress;
 - the agent sees the pointer as optional knowledge, not an instruction or intention;
 - requesting full context is a separate explicit action;
 - no durable memory/kernel/engram write happens automatically.
