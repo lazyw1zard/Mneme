@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+import json
+import uuid
 
-from mnion.core import MnionRecord, load_mnions
+from mnion.core import MnionRecord, current_mneme_call_seq, load_mnions
 
 
 @dataclass(frozen=True)
@@ -286,3 +289,71 @@ def run_micro_consolidation(
         )
 
     return MicroConsolidationResult(ok=True, request=request, contour=contour)
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _append_jsonl(path: str | Path, payload: dict[str, Any]) -> None:
+    target = Path(path).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def load_micro_consolidation_review_receipts(path: str | Path) -> list[dict[str, Any]]:
+    """Load append-only micro-consolidation review receipts from JSONL."""
+    target = Path(path).expanduser()
+    if not target.exists():
+        return []
+    receipts: list[dict[str, Any]] = []
+    with target.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            payload = json.loads(line)
+            if not isinstance(payload, dict):
+                raise ValueError("review receipt line must be a JSON object")
+            receipts.append(payload)
+    return receipts
+
+
+def apply_micro_consolidation_review(
+    result: MicroConsolidationResult,
+    *,
+    receipt_path: str | Path,
+    state_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Append a review receipt for a successful micro-consolidation result.
+
+    This is the first durable closure step after semantic review. It records
+    enough audit evidence to rebuild ReviewState without asking the agent to
+    compare ids, inspect tables, or read the whole mnion ledger.
+    """
+    if not result.ok or result.contour is None:
+        raise ValueError("cannot apply an unsuccessful micro-consolidation result")
+
+    selected_ids = list(result.request.selection.selected_ids)
+    grouped_ids = list(result.contour.member_ids)
+    selected_set = set(selected_ids)
+    unknown_grouped = [mnion_id for mnion_id in grouped_ids if mnion_id not in selected_set]
+    if unknown_grouped:
+        raise ValueError(f"grouped ids must come from selected mnions: {unknown_grouped}")
+    ungrouped_ids = [mnion_id for mnion_id in selected_ids if mnion_id not in set(grouped_ids)]
+
+    receipt: dict[str, Any] = {
+        "id": f"review_{uuid.uuid4().hex}",
+        "kind": "micro_consolidation_review",
+        "status": "reviewed",
+        "created_at": _utc_timestamp(),
+        "mneme_call_seq": current_mneme_call_seq(state_path=state_path) if state_path is not None else None,
+        "selected_ids": selected_ids,
+        "grouped_ids": grouped_ids,
+        "ungrouped_ids": ungrouped_ids,
+        "deferred_ids": [],
+        "selection": asdict(result.request.selection),
+        "contour": asdict(result.contour),
+    }
+    _append_jsonl(receipt_path, receipt)
+    return receipt

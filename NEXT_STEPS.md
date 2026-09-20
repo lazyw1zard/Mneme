@@ -16,7 +16,8 @@ Done:
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
 - implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
 - implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares active mnions for an agent review and returns one candidate contour or a structured error;
-- complete the first 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by `ReviewState`, `derive_review_state()`, and compact selection metadata.
+- complete the first 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by `ReviewState`, `derive_review_state()`, and compact selection metadata;
+- implement the 3.1 receipt closure: `apply_micro_consolidation_review()` appends a review receipt JSONL and `load_micro_consolidation_review_receipts()` lets the next selection skip reviewed mnions without exposing receipts to the agent.
 
 Not done:
 
@@ -26,7 +27,7 @@ Not done:
 - no auto-ingestion;
 - no kernel mutation;
 - no automatic memory capture;
-- no automatic durable write from micro-consolidation;
+- no automatic durable memory/kernel write from micro-consolidation; explicit review receipts are audit/read-state evidence only;
 - no minimal pointer object yet;
 - no active return path that injects pointers into agent ingress;
 - no host-runtime routing contract that makes Mnion reliably considered during live memory decisions.
@@ -184,7 +185,8 @@ Verification:
 - successful agent callback returns one candidate contour;
 - failing agent callback returns `agent_call_failed`;
 - invalid agent output returns `invalid_agent_response`;
-- this first slice does not write review events to the ledger.
+- `run_micro_consolidation()` itself does not write review events to the ledger;
+- `apply_micro_consolidation_review()` can explicitly append a review receipt outside the mnion ledger.
 
 Important correction: `latest active mnions` is only the implemented probe shape, not the accepted selection policy. The real 3.1 completion path is email-like unread-active coverage.
 
@@ -238,7 +240,40 @@ not SQL rows.
 
 Implementation plan: `docs/plans/2026-09-14-micro-consolidation-selection-read-model.md`.
 
-## Slice 3.1c — internal read model and queue substrate
+## Slice 3.1c — explicit review receipt closure
+
+Goal: let a completed micro-consolidation review close over selected mnions without mutating the mnion ledger, promoting durable memory, or asking the agent to do id bookkeeping.
+
+Behavior:
+
+```text
+run_micro_consolidation(...)
+  -> MicroConsolidationResult(ok=True, contour=...)
+  -> apply_micro_consolidation_review(result, receipt_path)
+  -> append micro_consolidation_review JSONL receipt
+  -> load_micro_consolidation_review_receipts(receipt_path)
+  -> derive_review_state(...)
+  -> next selection skips reviewed mnions
+```
+
+Receipt boundary:
+
+```text
+review receipt = audit/read-state evidence
+not a pointer
+not durable memory
+not kernel/engram write
+not automatic promotion
+```
+
+Verification:
+
+- receipt records selected/grouped/ungrouped ids;
+- receipt stores compact selection metadata and contour summary;
+- next `prepare_micro_consolidation_request(..., review_receipts=stored)` excludes reviewed active mnions;
+- `run_micro_consolidation()` remains side-effect-free unless the caller explicitly applies the review.
+
+## Slice 3.1d — internal read model and queue substrate
 
 Goal: allow SQLite where it simplifies active/unread selection, pressure checks, and future queue work, without making Mneme database-first.
 

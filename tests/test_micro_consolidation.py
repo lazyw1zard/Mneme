@@ -7,7 +7,9 @@ from mnion.micro_consolidation import (
     MicroConsolidationError,
     MicroConsolidationSelection,
     ReviewState,
+    apply_micro_consolidation_review,
     derive_review_state,
+    load_micro_consolidation_review_receipts,
     prepare_micro_consolidation_request,
     run_micro_consolidation,
     select_unread_active_mnions,
@@ -216,6 +218,50 @@ def test_run_micro_consolidation_returns_error_for_invalid_agent_shape(tmp_path)
     assert result.contour is None
     assert result.error is not None
     assert result.error.reason == "invalid_agent_response"
+
+
+def test_apply_micro_consolidation_review_appends_receipt_and_next_selection_skips_reviewed(tmp_path):
+    ledger = tmp_path / "mnions.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    records = _capture_many(ledger, state, 4)
+
+    result = run_micro_consolidation(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=3,
+        agent=lambda request: {
+            "summary": "first and third mnions share a review pressure",
+            "valence": 0.81,
+            "member_ids": [records[0].id, records[2].id],
+            "rationale": "semantic overlap inside the selected packet",
+        },
+    )
+
+    receipt = apply_micro_consolidation_review(result, receipt_path=receipts, state_path=state)
+
+    assert receipt["kind"] == "micro_consolidation_review"
+    assert receipt["status"] == "reviewed"
+    assert receipt["grouped_ids"] == [records[0].id, records[2].id]
+    assert receipt["ungrouped_ids"] == [records[1].id]
+    assert receipt["selected_ids"] == [records[0].id, records[1].id, records[2].id]
+    assert receipt["contour"]["summary"] == "first and third mnions share a review pressure"
+    assert receipt["selection"]["strategy"] == "unread_active_coverage"
+    assert receipt["mneme_call_seq"] == 4
+
+    stored = load_micro_consolidation_review_receipts(receipts)
+    assert stored == [receipt]
+
+    next_request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=10,
+        review_receipts=stored,
+    )
+
+    assert [mnion.id for mnion in next_request.mnions] == [records[3].id]
+    assert next_request.selection.reviewed_active_count == 3
+    assert next_request.selection.unread_active_count == 1
 
 
 def test_run_micro_consolidation_does_not_write_review_events_yet(tmp_path):
