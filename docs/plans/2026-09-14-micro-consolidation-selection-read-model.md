@@ -23,7 +23,7 @@ Agents must not inspect tables, write SQL, or manually diff receipt ids against 
 ```text
 prepare_micro_consolidation_request()
   -> MicroConsolidationRequest(
-       mnions=[bounded selected MnionRecord...],
+       mnions=[bounded selected MemoryTagRecord...],
        selection=MicroConsolidationSelection(...),
        prompt=compact review prompt,
      )
@@ -39,7 +39,7 @@ SQLite read model           = fast working index / queue
 agent-facing tools          = compact paws
 ```
 
-If SQLite state is deleted, it should be reconstructable from mnion records and review receipts.
+If SQLite state is deleted, it should be reconstructable from memory tag records and review receipts.
 
 ### Decision 3 — Worker is model-free first
 
@@ -174,7 +174,7 @@ uv run --with pytest pytest -q
 
 Status: completed.
 
-**Objective:** Prepare review packets from unread active mnions, not newest active mnions.
+**Objective:** Prepare review packets from unread active memory tags, not newest active memory tags.
 
 **Files:**
 - Modify: `src/mnion/micro_consolidation.py`
@@ -186,7 +186,7 @@ Test that:
 
 ```text
 active reviewed mnions are skipped
-active unread mnions are selected
+active unread memory tags are selected
 selection is bounded by packet_limit
 oldest unread are selected first for fair coverage
 high-valence unread can be priority-bumped if implemented in this slice
@@ -196,7 +196,7 @@ high-valence unread can be priority-bumped if implemented in this slice
 
 ```python
 def select_unread_active_mnions(
-    active_mnions: list[MnionRecord],
+    active_mnions: list[MemoryTagRecord],
     review_state: dict[str, ReviewState],
     *,
     packet_limit: int,
@@ -214,7 +214,7 @@ packet_limit by count
 
 **Step 3: Preserve agent compactness**
 
-`MicroConsolidationRequest` should include selection metadata and selected mnions only. It should not include all receipts or full read-model state.
+`MicroConsolidationRequest` should include selection metadata and selected memory tags only. It should not include all receipts or full read-model state.
 
 **Step 4: Verify**
 

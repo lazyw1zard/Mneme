@@ -11,14 +11,14 @@ Done:
 - preserve semantic nucleus;
 - map relation to Pulse / StateLayer / Dream / Grow / kernel;
 - sketch native shapes for pointer, affect salience, retrieval route, reconsolidation state, context brief, receipt;
-- implement Slice 0: `mnion` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
+- implement Slice 0: `memory_tag` capture as cheap ephemeral JSONL tag plus one MCP-visible capture tool;
 - implement Slice 1: MCP-visible `memory_tag.capture` increments a tiny portable `mneme_seq.json` counter and records `birth_call_seq`/`call_ttl` for call-age decay;
 - add `docs/05-mnion-options-and-optimizations.md` as the living shelf for tuning, config candidates, and future storage/read optimizations;
 - implement Slice 2: cheap pre-capture filter inside `memory_tag.capture`, returning `created`, `reinforced`, or `linked_new` without adding a second MCP tool;
-- implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares active mnions for an agent review and returns one candidate contour or a structured error;
+- implement Slice 3.1: minimal host-neutral `mnion.micro_consolidation` experiment that prepares active memory tags for an agent review and returns one candidate contour or a structured error;
 - complete the first 3.1 refinement: replace provisional `latest active` selection with email-like unread-active coverage, backed by `ReviewState`, `derive_review_state()`, and compact selection metadata;
 - implement the 3.1 receipt closure: `apply_micro_consolidation_review()` appends a review receipt JSONL and `load_micro_consolidation_review_receipts()` lets the next selection skip reviewed mnions without exposing receipts to the agent;
-- implement Slice 3.2 minimal pointer shape: `MemoryPointer`, `pointer_from_micro_consolidation_receipt()`, and bounded `pointer_ingress_hint()` that returns optional knowledge without loading context.
+- implement Slice 3.2 minimal pointer shape: `MemoryPointer`, `pointer_from_mnion_receipt()`, and bounded `pointer_ingress_hint()` that returns optional knowledge without loading context.
 
 Not done:
 
@@ -44,7 +44,7 @@ Behavior:
 ```text
 agent host turn/event
   -> Mneme routing membrane
-  -> no_write | candidate/mnion | recall_brief | review_due | commit_request
+  -> no_write | candidate/memory_tag | recall_brief | review_due | commit_request
 ```
 
 This is not keyword auto-capture. Words like `память`, `важно`, and `сохранить` can be weak evidence, but they must never be the trigger. The routing membrane should weigh meaning, durability, utility, valence, sensitivity, volatility, and consequence.
@@ -64,7 +64,7 @@ Portable ports:
 ```text
 TurnIngressPort   -> optional brief/routing hint before the model answers
 SaliencePort      -> score memory pressure from events/actions/corrections
-CapturePort       -> write ephemeral candidate/mnion with provenance
+CapturePort       -> write ephemeral candidate/memory_tag with provenance
 RecallPort        -> return compact brief + pointers + confidence + guards
 ReviewPort        -> prepare consolidation proposal
 CommitPort        -> apply approved durable write with audit/deletion route
@@ -96,27 +96,27 @@ Behavior:
 memory_tag.capture(delta, valence, ttl_seconds, call_ttl=32, hooks, trigger, affect_hints)
   -> pre-capture compare against newest active tags
   -> created | reinforced | linked_new
-  -> append one mnion record or a small lifecycle event
+  -> append one memory tag record or a small lifecycle event
   -> no embedding, pointer, deep memory, kernel write, or engram
 ```
 
 Default storage follows `MNEME_STATE_DIR` first, then XDG:
 
 ```text
-$MNEME_STATE_DIR/mnions.jsonl
+$MNEME_STATE_DIR/memory_tags.jsonl
 $MNEME_STATE_DIR/mneme_seq.json
 
 # fallback when MNEME_STATE_DIR is unset:
-$XDG_STATE_HOME/mneme/mnions.jsonl
+$XDG_STATE_HOME/mneme/memory_tags.jsonl
 $XDG_STATE_HOME/mneme/mneme_seq.json
 ```
 
-The counter advances only when the Mneme/mnion organ is called. It does not count every Hermes turn, model generation, Telegram delivery, tool execution, or Codex run.
+The counter advances only when the Mneme/memory-tag organ is called. It does not count every Hermes turn, model generation, Telegram delivery, tool execution, or Codex run.
 
 Verification:
 
 - capture writes one bounded tag;
-- active reads are bounded by default (`DEFAULT_ACTIVE_MNION_LIMIT = 20`);
+- active reads are bounded by default (`DEFAULT_ACTIVE_MEMORY_TAG_LIMIT = 20`);
 - expired tags are hidden unless explicitly requested with audit flags;
 - MCP surface exposes exactly one capture affordance;
 - no Hermes runtime config is changed automatically.
@@ -124,27 +124,27 @@ Verification:
 
 ## Slice 1 — mnion lifecycle over Mneme call counts
 
-Goal: make mnions live/decay by actual Mneme/mnion use, not by wall-clock alone and not by every model generation.
+Goal: make mnions live/decay by actual Mneme/memory-tag use, not by wall-clock alone and not by every model generation.
 
 Behavior:
 
 ```text
 memory_tag.capture increments mneme_call_seq
-mnion.birth_call_seq = current mneme_call_seq
-mnion_touch / mnion_sweep use call_age + wall fallback
+memory_tag.birth_call_seq = current mneme_call_seq
+memory_tag_touch / memory_tag_sweep use call_age + wall fallback
 future config file may tune default_ttl_seconds/default_call_ttl/active_limit after real use
 ```
 
 Verification:
 
-- mnion TTL can be expressed as N Mneme/mnion calls, currently defaulting to 32;
+- memory tag TTL can be expressed as N Mneme/memory-tag calls, currently defaulting to 32;
 - capture itself is enough to advance the minimal working counter;
 - repeated capture/touch can update valence without promotion;
 - no dependency on Hermes hooks, Codex logs, or agent-runtime internals.
 
 ## Slice 2 — pre-capture filter
 
-Goal: prevent obvious duplicate mnions before they enter the active set.
+Goal: prevent obvious duplicate memory tags before they enter the active set.
 
 Behavior:
 
@@ -163,42 +163,42 @@ Verification:
 
 ## Slice 3.1 — minimal micro-consolidation review packet
 
-Goal: prove that a small batch of active mnions can be handed to a host-provided live contour/agent without making Mneme depend on Hermes.
+Goal: prove that a small batch of active memory tags can be handed to a host-provided live contour/agent without making Mneme depend on Hermes.
 
 Behavior:
 
 ```text
 prepare_micro_consolidation_request(packet_limit=10)
-  -> active mnions
+  -> active memory tags
   -> derived review_state
   -> unread-active coverage packet
   -> portable prompt + expected schema
 
 run_micro_consolidation(agent=callable)
   -> try agent(request)
-  -> ConsolidatedContour(summary, valence, member_ids, rationale)
+  -> Mnion(summary, valence, rationale) + receipt grouped_ids
   -> structured error if the agent call fails or returns invalid data
 ```
 
 Verification:
 
-- bounded unread active mnions are selected through review-state coverage;
+- bounded unread active memory tags are selected through review-state coverage;
 - successful agent callback returns one candidate contour;
 - failing agent callback returns `agent_call_failed`;
 - invalid agent output returns `invalid_agent_response`;
 - `run_micro_consolidation()` itself does not write review events to the ledger;
-- `apply_micro_consolidation_review()` can explicitly append a review receipt outside the mnion ledger.
+- `apply_micro_consolidation_review()` can explicitly append a review receipt outside the memory tag ledger.
 
-Important correction: `latest active mnions` is only the implemented probe shape, not the accepted selection policy. The real 3.1 completion path is email-like unread-active coverage.
+Important correction: `latest active memory tags` is only the implemented probe shape, not the accepted selection policy. The real 3.1 completion path is email-like unread-active coverage.
 
 ## Slice 3.1b — unread-active coverage selection
 
-Goal: replace the provisional `latest active` packet with a bounded fair coverage selector that does not starve older active mnions.
+Goal: replace the provisional `latest active` packet with a bounded fair coverage selector that does not starve older active memory tags.
 
 Behavior:
 
 ```text
-active mnions
+active memory tags
   -> review_state/read-model
   -> unread | reviewed | deferred | needs_rereview
   -> bounded MicroConsolidationSelection packet
@@ -208,8 +208,8 @@ active mnions
 Selection policy:
 
 ```text
-first pass: all active unread mnions, chunked by packet_limit
-later passes: unread active mnions plus explicit needs_rereview
+first pass: all active unread memory tags, chunked by packet_limit
+later passes: unread active memory tags plus explicit needs_rereview
 priority bump: high valence / high reinforcement / linked pressure
 fairness: oldest unread should not be permanently skipped
 ```
@@ -233,8 +233,8 @@ MicroConsolidationSelection(
 Token/time invariant:
 
 ```text
-the agent receives selected mnions + compact selection metadata,
-not the whole mnion ledger,
+the agent receives selected memory tags + compact selection metadata,
+not the whole memory tag ledger,
 not all receipts,
 not SQL rows.
 ```
@@ -243,7 +243,7 @@ Implementation plan: `docs/plans/2026-09-14-micro-consolidation-selection-read-m
 
 ## Slice 3.1c — explicit review receipt closure
 
-Goal: let a completed micro-consolidation review close over selected mnions without mutating the mnion ledger, promoting durable memory, or asking the agent to do id bookkeeping.
+Goal: let a completed micro-consolidation review close over selected memory tags without mutating the memory tag ledger, promoting durable memory, or asking the agent to do id bookkeeping.
 
 Behavior:
 
@@ -271,7 +271,7 @@ Verification:
 
 - receipt records selected/grouped/ungrouped ids;
 - receipt stores compact selection metadata and contour summary;
-- next `prepare_micro_consolidation_request(..., review_receipts=stored)` excludes reviewed active mnions;
+- next `prepare_micro_consolidation_request(..., review_receipts=stored)` excludes reviewed active memory tags;
 - `run_micro_consolidation()` remains side-effect-free unless the caller explicitly applies the review.
 
 ## Slice 3.1d — internal read model and queue substrate
@@ -281,7 +281,7 @@ Goal: allow SQLite where it simplifies active/unread selection, pressure checks,
 Architecture:
 
 ```text
-append-only mnion records / review receipts
+append-only memory tag records / review receipts
   -> reconstructable read model
   -> optional SQLite materialization
   -> compact paws/tools for agent-facing use
@@ -318,12 +318,12 @@ semantic consolidation worker is later and requires explicit governance.
 
 Goal: prove that Mneme can return “I know that I know this” without loading the full context into the agent.
 
-This is the next slice after 3.1. Do not jump directly from `ConsolidatedContour` to active recollection text, durable memory, vector retrieval, or a rich context brief.
+This is the next slice after 3.1. Do not jump directly from `Mnion` to active recollection text, durable memory, vector retrieval, or a rich context brief.
 
 Behavior:
 
 ```text
-ConsolidatedContour(summary, valence, member_ids, rationale)
+Mnion(summary, valence, rationale) + receipt grouped_ids
   -> MemoryPointer(
        claim,
        route,
@@ -354,7 +354,7 @@ retrieval_hint     optional topic/query hint for later brief retrieval
 
 Verification:
 
-- `pointer_from_micro_consolidation_receipt()` builds a guarded `MemoryPointer` from a review receipt without loading source mnion bodies;
+- `pointer_from_mnion_receipt()` builds a guarded `MemoryPointer` from a review receipt without loading source memory tag bodies;
 - `pointer_ingress_hint()` renders bounded optional knowledge for prompt-facing ingress;
 - the agent sees the pointer as optional knowledge, not an instruction or intention;
 - requesting full context is a separate explicit action;

@@ -17,14 +17,14 @@ pass through contour
   -> delta appears
   -> memory_tag.capture(delta, valence, wall_ttl, call_ttl)
   -> mneme_call_seq increments
-  -> ephemeral mnion gets birth_call_seq
+  -> ephemeral memory tag gets birth_call_seq
   -> repeated valence/review may consolidate it
   -> otherwise it decays by wall time or Mneme-call age
 ```
 
 ## Name
 
-`mnion` is the working name for the smallest captured tag.
+`mnion` is the working name for the smallest captured memory tag.
 
 It means:
 
@@ -42,7 +42,7 @@ The essence of a mnion is only:
 ```text
 delta     what changed in the contour / the captured signature
 valence   significance for my contour, 0.0..1.0
-ttl       wall fallback + Mneme/mnion call window before decay
+ttl       wall fallback + Mneme/memory-tag call window before decay
 ```
 
 Runtime fields exist only so the tag can live and expire:
@@ -86,7 +86,7 @@ Current JSONL record:
 Runtime storage is still plain local files, resolved from `MNEME_STATE_DIR` or XDG defaults:
 
 ```text
-$MNEME_STATE_DIR/mnions.jsonl
+$MNEME_STATE_DIR/memory_tags.jsonl
 $MNEME_STATE_DIR/mneme_seq.json
 
 # fallback when MNEME_STATE_DIR is unset:
@@ -100,7 +100,7 @@ $XDG_STATE_HOME/mneme/...
 {"seq": 42}
 ```
 
-Only Mneme/mnion organ calls increment it. This is not a Hermes/Codex/runtime generation counter.
+Only Mneme/memory-tag organ calls increment it. This is not a Hermes/Codex/runtime generation counter.
 
 Current use:
 
@@ -108,21 +108,21 @@ Current use:
 memory_tag.capture
   -> seq += 1
   -> compare candidate against newest active tags
-  -> created: append mnion record with birth_call_seq/call_ttl
+  -> created: append memory tag record with birth_call_seq/call_ttl
   -> reinforced: append reinforcement event, no duplicate mnion
-  -> linked_new: append mnion record plus a small link event
+  -> linked_new: append memory tag record plus a small link event
 ```
 
 `ttl_seconds` stays as a coarse safety cap, not the main lifecycle axis. Default is intentionally long for an agentic memory tag:
 
 ```text
 DEFAULT_TTL_SECONDS = 604800  # 7 days
-DEFAULT_CALL_TTL = 32         # 32 Mneme/mnion calls
+DEFAULT_CALL_TTL = 32         # 32 Mneme/memory-tag calls
 ```
 
 The wall cap prevents forgotten files from staying active forever if the organ is not called for a long time. The call TTL carries the actual memory-pass semantics.
 
-`load_mnions(..., state_path=...)` hides a mnion by default when either:
+`load_memory_tags(..., state_path=...)` hides a mnion by default when either:
 
 ```text
 wall-clock expires_at passed
@@ -133,10 +133,10 @@ current_seq - birth_call_seq >= call_ttl
 `include_expired=True` still shows it for audit. Active reads are bounded by default:
 
 ```text
-DEFAULT_ACTIVE_MNION_LIMIT = 20
-load_mnions(...)              # newest 20 active mnions, chronological within the selected window
-load_mnions(limit=None)       # explicit full scan/result
-load_mnions(include_expired=True, limit=None)  # explicit audit mode
+DEFAULT_ACTIVE_MEMORY_TAG_LIMIT = 20
+load_memory_tags(...)              # newest 20 active memory tags, chronological within the selected window
+load_memory_tags(limit=None)       # explicit full scan/result
+load_memory_tags(include_expired=True, limit=None)  # explicit audit mode
 ```
 
 This keeps hidden/expired mnions out of normal prompt-facing paths. Future recall/brief tools should return compact summaries over this bounded active set, not dump the raw ledger.
@@ -158,9 +158,9 @@ promotion  not self.promise; promotion/consolidation belongs to a later gate
 Outcomes:
 
 ```text
-created      no active match; append a new mnion record
+created      no active match; append a new memory tag record
 reinforced   strong same-pattern match; append a reinforcement event, no duplicate mnion
-linked_new   related but distinct; append a new mnion record plus a small link event
+linked_new   related but distinct; append a new memory tag record plus a small link event
 ```
 
 Comparison fields:
@@ -181,7 +181,7 @@ REINFORCE_THRESHOLD = 0.67
 LINK_THRESHOLD = 0.34
 ```
 
-The filter reads only the normal bounded active window (`DEFAULT_ACTIVE_MNION_LIMIT = 20`) and uses lexical/signature overlap only: no embeddings, no model call, no vector store, no graph database.
+The filter reads only the normal bounded active window (`DEFAULT_ACTIVE_MEMORY_TAG_LIMIT = 20`) and uses lexical/signature overlap only: no embeddings, no model call, no vector store, no graph database.
 
 Reinforcement is append-only and refreshes call-life for active loading:
 
@@ -267,7 +267,7 @@ Inputs:
 delta         bounded contour delta / signature
 valence       0.0..1.0 significance for contour
 ttl_seconds   wall-clock fallback TTL, default 604800 / 7 days
-call_ttl      Mneme/mnion-call TTL, default 32
+call_ttl      Mneme/memory-tag-call TTL, default 32
 hooks         optional association/source handles
 trigger       optional birth reason
 affect_hints  functional emotion / salience hints
@@ -277,7 +277,7 @@ The tool returns an action/result plus guards:
 
 ```text
 not durable memory;
-this counter counts Mneme/mnion calls, not every agent/runtime/model generation;
+this counter counts Mneme/memory-tag calls, not every agent/runtime/model generation;
 threshold crossing is review pressure, not automatic promotion;
 no embedding/deep node/kernel/engram was created.
 ```

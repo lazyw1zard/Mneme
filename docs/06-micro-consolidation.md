@@ -18,21 +18,21 @@ but semantic confirmation needs a bounded live review pass.
 The first probe was deliberately small:
 
 ```text
-latest active mnions
+latest active memory tags
   -> portable MicroConsolidationRequest
   -> host-provided agent callable
-  -> one ConsolidatedContour(summary, valence, member_ids, rationale)
+  -> one Mnion(summary, valence, rationale) + receipt grouped_ids
 ```
 
 Current 3.1 behavior:
 
 ```text
-active mnions
+active memory tags
   -> review_state/read-model
   -> unread active coverage packet
   -> compact MicroConsolidationRequest
   -> host-provided agent callable
-  -> one candidate ConsolidatedContour or structured no-candidate/error
+  -> one candidate Mnion or structured no-candidate/error
 ```
 
 It does not write durable memory, kernel notes, engrams, embeddings, or graph nodes.
@@ -43,7 +43,7 @@ It does not write durable memory, kernel notes, engrams, embeddings, or graph no
 from mnion.micro_consolidation import run_micro_consolidation
 
 result = run_micro_consolidation(
-    ledger_path="/path/to/mnions.jsonl",
+    ledger_path="/path/to/memory_tags.jsonl",
     state_path="/path/to/mneme_seq.json",
     agent=my_agent_callable,
     packet_limit=10,
@@ -53,7 +53,7 @@ result = run_micro_consolidation(
 The agent receives a `MicroConsolidationRequest`:
 
 ```text
-mnions                  bounded unread active MnionRecord objects, default limit 10
+mnions                  bounded unread active MemoryTagRecord objects, default limit 10
 prompt                  portable review prompt
 expected_output_schema  summary / valence / member_ids / rationale
 reason                  why the review packet was prepared
@@ -65,24 +65,24 @@ Expected agent return shape:
 
 ```json
 {
-  "summary": "shared meaning across selected mnions",
+  "summary": "shared meaning across selected memory tags",
   "valence": 0.73,
   "member_ids": ["mnion_a", "mnion_b"],
   "rationale": "optional reason for the semantic grouping"
 }
 ```
 
-`ConsolidatedContour` is an experimental object, not a promotion target. It also should not be injected into the live agent as full context by default. The next slice should turn consolidation into a minimal pointer first.
+`Mnion` is an experimental object, not a promotion target. It also should not be injected into the live agent as full context by default. The next slice should turn consolidation into a minimal pointer first.
 
 ## Selection and token budget
 
 The real selection policy is email-like coverage, not newest-N recency:
 
 ```text
-first pass: all active unread mnions, chunked by packet limit
-later passes: unread active mnions plus explicit needs_rereview
+first pass: all active unread memory tags, chunked by packet limit
+later passes: unread active memory tags plus explicit needs_rereview
 priority bump: high valence / high reinforcement / linked pressure
-fairness: oldest unread active mnions must not starve
+fairness: oldest unread active memory tags must not starve
 ```
 
 The agent should receive only:
@@ -97,7 +97,7 @@ expected output schema
 The agent should not receive:
 
 ```text
-full mnion ledger
+full memory tag ledger
 all review receipts
 SQLite rows
 SQL query access
@@ -132,7 +132,7 @@ from mnion.micro_consolidation import (
 review_state = derive_review_state(review_receipts)
 packet = select_unread_active_mnions(active_mnions, review_state, packet_limit=10)
 request = prepare_micro_consolidation_request(
-    ledger_path="/path/to/mnions.jsonl",
+    ledger_path="/path/to/memory_tags.jsonl",
     review_receipts=review_receipts,
     packet_limit=10,
 )
@@ -152,7 +152,7 @@ needs_rereview  -> eligible
 SQLite is allowed as an internal read model when it makes active/unread selection, pressure checks, and queue maintenance simpler. It must remain reconstructable from append-only evidence:
 
 ```text
-mnion records + review receipts
+memory tag records + review receipts
   -> derived read model
   -> optional SQLite materialization
   -> compact tool packet
@@ -211,7 +211,7 @@ I know that I know this.
 Planned flow:
 
 ```text
-ConsolidatedContour
+Mnion
   -> MemoryPointer(claim, route, source_handles, valence, confidence, guards)
   -> agent ingress receives pointer only
   -> agent explicitly requests full context/brief if it judges the pointer relevant
@@ -251,7 +251,7 @@ MCP prompts/sampling are useful adapter surfaces, but not required by this core 
 Implemented tests cover:
 
 ```text
-prepare request returns bounded unread active mnions
+prepare request returns bounded unread active memory tags
 run_micro_consolidation calls agent and returns a contour
 agent exceptions become structured errors
 invalid response shapes become structured errors

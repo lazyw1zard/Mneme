@@ -8,8 +8,8 @@ This file is the shelf for practical tuning ideas while mnion is still a small w
 
 ```text
 DEFAULT_TTL_SECONDS = 604800  # 7 days, wall-clock fallback
-DEFAULT_CALL_TTL = 32         # Mneme/mnion-call lifetime
-DEFAULT_ACTIVE_MNION_LIMIT = 20
+DEFAULT_CALL_TTL = 32         # Mneme/memory-tag-call lifetime
+DEFAULT_ACTIVE_MEMORY_TAG_LIMIT = 20
 ```
 
 Meaning:
@@ -23,7 +23,7 @@ active limit = prompt-facing/read path budget guard
 ## Current storage
 
 ```text
-$MNEME_STATE_DIR/mnions.jsonl
+$MNEME_STATE_DIR/memory_tags.jsonl
 $MNEME_STATE_DIR/mneme_seq.json
 
 # fallback when MNEME_STATE_DIR is unset:
@@ -37,7 +37,7 @@ $XDG_STATE_HOME/mneme/...
 {"seq": 2}
 ```
 
-It counts only Mneme/mnion calls, not every model generation, Hermes turn, Telegram delivery, Codex run, or tool execution.
+It counts only Mneme/memory-tag calls, not every model generation, Hermes turn, Telegram delivery, Codex run, or tool execution.
 
 ## Near-term tuning questions
 
@@ -93,7 +93,7 @@ Current default is `20` active records.
 This protects the prompt-facing path:
 
 ```text
-normal read -> newest 20 active mnions
+normal read -> newest 20 active memory tags
 explicit audit -> full/expired ledger
 ```
 
@@ -148,11 +148,11 @@ Rules for config:
 
 ### A. Avoid reading huge JSONL forever
 
-Current `load_mnions` still scans the JSONL file, then returns a bounded active window. This prevents prompt flooding but not IO growth.
+Current `load_memory_tags` still scans the JSONL file, then returns a bounded active window. This prevents prompt flooding but not IO growth.
 
 Future options:
 
-1. `active_mnions.jsonl` sidecar updated by sweep;
+1. `active_memory_tags.jsonl` sidecar updated by sweep;
 2. archived expired records moved to `mnions.archive.jsonl`;
 3. small SQLite read model when JSONL scanning, review-state derivation, or agent packet selection becomes too slow/heavy;
 4. compact active brief cache generated from active records.
@@ -222,7 +222,7 @@ Not urgent because `captured_at` already exists.
 Normal path:
 
 ```text
-load_mnions()
+load_memory_tags()
   -> active only
   -> bounded limit
 ```
@@ -230,7 +230,7 @@ load_mnions()
 Audit path:
 
 ```text
-load_mnions(include_expired=True, limit=None)
+load_memory_tags(include_expired=True, limit=None)
 ```
 
 Future recall tools should not expose hidden mnions by default. They should request audit/full mode explicitly.
@@ -260,7 +260,7 @@ Do not split axes until touch/review behavior proves the need.
 - no raw transcript ingestion;
 - no automatic kernel/engram writes;
 - no Hermes/Codex dependency for lifecycle;
-- no prompt dump of full mnion ledger;
+- no prompt dump of full memory tag ledger;
 - no promotion from `memory_tag.capture` alone.
 
 ## Working maxim

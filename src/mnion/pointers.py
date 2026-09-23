@@ -10,7 +10,7 @@ MAX_HINT_CHARS = 220
 
 @dataclass(frozen=True)
 class MemoryPointer:
-    """Prompt-safe metamemory pointer, not retrieved context."""
+    """Prompt-safe route to a Mneme object, not retrieved context itself."""
 
     id: str
     claim: str
@@ -35,31 +35,37 @@ def _stable_pointer_id(*, review_id: str, claim: str, source_handles: list[str])
     return f"pointer_{digest}"
 
 
-def pointer_from_micro_consolidation_receipt(receipt: dict[str, Any]) -> MemoryPointer:
-    """Build the first pointer layer from a review receipt.
+def pointer_from_mnion_receipt(receipt: dict[str, Any]) -> MemoryPointer:
+    """Build a prompt-safe pointer from a micro-consolidation receipt.
 
-    The pointer says that a route exists. It does not load source mnions, infer
-    missing context, or promote anything into durable memory.
+    The receipt is the bridge object: `mnion` carries semantic content, while
+    `grouped_ids` and the receipt id carry provenance/statistics. The pointer
+    exposes only a route and a compact claim; it does not load source tags,
+    infer missing context, or promote anything into durable memory.
     """
     review_id = str(receipt.get("id") or receipt.get("review_id") or "").strip()
     if not review_id:
         raise ValueError("review receipt id is required")
-    contour = receipt.get("contour")
-    if not isinstance(contour, dict):
-        raise ValueError("review receipt contour is required")
-    summary = _compact_one_line(contour.get("summary"), max_chars=MAX_CLAIM_CHARS)
+
+    # New receipts use `mnion`; old prototype receipts used `contour`.
+    mnion = receipt.get("mnion") or receipt.get("contour")
+    if not isinstance(mnion, dict):
+        raise ValueError("review receipt mnion is required")
+
+    summary = _compact_one_line(mnion.get("summary"), max_chars=MAX_CLAIM_CHARS)
     if not summary:
-        raise ValueError("contour summary is required")
+        raise ValueError("mnion summary is required")
     try:
-        valence = float(contour.get("valence", 0.0))
+        valence = float(mnion.get("valence", 0.0))
     except (TypeError, ValueError):
         valence = 0.0
     valence = max(0.0, min(1.0, valence))
-    raw_member_ids = contour.get("member_ids") or receipt.get("grouped_ids") or []
-    if not isinstance(raw_member_ids, list):
-        raise ValueError("contour member_ids must be a list")
-    member_ids = [str(member_id) for member_id in raw_member_ids]
-    source_handles = [review_id, *member_ids]
+
+    raw_grouped_ids = receipt.get("grouped_ids") or mnion.get("member_ids") or []
+    if not isinstance(raw_grouped_ids, list):
+        raise ValueError("receipt grouped_ids must be a list")
+    grouped_ids = [str(member_id) for member_id in raw_grouped_ids]
+    source_handles = [review_id, *grouped_ids]
     claim = f"I know that I know: {summary}"
     return MemoryPointer(
         id=_stable_pointer_id(review_id=review_id, claim=claim, source_handles=source_handles),
@@ -75,6 +81,10 @@ def pointer_from_micro_consolidation_receipt(receipt: dict[str, Any]) -> MemoryP
         guards=["pointer_only", "do_not_infer", "no_auto_promotion"],
         retrieval_hint=summary,
     )
+
+
+# Deprecated alias for older code/tests: the source is now a mnion receipt.
+pointer_from_micro_consolidation_receipt = pointer_from_mnion_receipt
 
 
 def pointer_ingress_hint(pointer: MemoryPointer) -> str:

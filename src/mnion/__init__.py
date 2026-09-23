@@ -1,31 +1,47 @@
-"""Mnion: cheap ephemeral capture tags for the future Mneme organ."""
+"""Mneme primitives: memory tags, agentic mnions, and pointer routes."""
 
 from .core import (
     CONSOLIDATION_THRESHOLD,
+    DEFAULT_ACTIVE_MEMORY_TAG_LIMIT,
     DEFAULT_ACTIVE_MNION_LIMIT,
     DEFAULT_CALL_TTL,
     DEFAULT_TTL_SECONDS,
+    MemoryTagCaptureRequest,
+    MemoryTagRecord,
     MnionCaptureRequest,
     MnionRecord,
+    capture_memory_tag,
+    capture_memory_tag_record,
     capture_mnion,
     current_mneme_call_seq,
+    load_memory_tags,
     load_mnions,
+    memory_tag_expired_by_call_age,
     mneme_call_age,
     mnion_expired_by_call_age,
     next_mneme_call_seq,
     valence_crosses_threshold,
 )
+from .micro_consolidation import Mnion
 
 __all__ = [
     "CONSOLIDATION_THRESHOLD",
+    "DEFAULT_ACTIVE_MEMORY_TAG_LIMIT",
     "DEFAULT_ACTIVE_MNION_LIMIT",
     "DEFAULT_CALL_TTL",
     "DEFAULT_TTL_SECONDS",
+    "MemoryTagCaptureRequest",
+    "MemoryTagRecord",
+    "Mnion",
     "MnionCaptureRequest",
     "MnionRecord",
+    "capture_memory_tag",
+    "capture_memory_tag_record",
     "capture_mnion",
     "current_mneme_call_seq",
+    "load_memory_tags",
     "load_mnions",
+    "memory_tag_expired_by_call_age",
     "mneme_call_age",
     "mnion_expired_by_call_age",
     "next_mneme_call_seq",

@@ -11,7 +11,9 @@ import uuid
 
 DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60
 DEFAULT_CALL_TTL = 32
-DEFAULT_ACTIVE_MNION_LIMIT = 20
+DEFAULT_ACTIVE_MEMORY_TAG_LIMIT = 20
+# Deprecated compatibility constant: raw inputs used to be called mnions.
+DEFAULT_ACTIVE_MNION_LIMIT = DEFAULT_ACTIVE_MEMORY_TAG_LIMIT
 MAX_DELTA_CHARS = 280
 CONSOLIDATION_THRESHOLD = 0.7
 REINFORCE_THRESHOLD = 0.67
@@ -45,7 +47,7 @@ _STOP_TOKENS = {
 
 
 @dataclass(frozen=True)
-class MnionCaptureRequest:
+class MemoryTagCaptureRequest:
     delta: str
     valence: float
     ttl_seconds: int = DEFAULT_TTL_SECONDS
@@ -56,7 +58,7 @@ class MnionCaptureRequest:
 
 
 @dataclass(frozen=True)
-class MnionRecord:
+class MemoryTagRecord:
     id: str
     delta: str
     valence: float
@@ -74,7 +76,7 @@ class MnionRecord:
 class MemoryTagCaptureResult:
     action: str
     target_id: str
-    record: MnionRecord | None
+    record: MemoryTagRecord | None
     linked_ids: list[str]
     match_score: float
     reason: str
@@ -86,7 +88,7 @@ class MemoryTagCaptureResult:
 
 @dataclass(frozen=True)
 class _CandidateMatch:
-    record: MnionRecord
+    record: MemoryTagRecord
     score: float
     reason: str
     effective_valence: float
@@ -119,7 +121,7 @@ def _clean_trigger(value: str | None) -> str | None:
     return cleaned or None
 
 
-def _validate_request(request: MnionCaptureRequest) -> None:
+def _validate_request(request: MemoryTagCaptureRequest) -> None:
     delta = request.delta.strip()
     if not delta:
         raise ValueError("delta is required")
@@ -141,7 +143,7 @@ def _resolve_state_path(ledger_path: str | Path, state_path: str | Path | None) 
 
 
 def current_mneme_call_seq(*, state_path: str | Path) -> int:
-    """Read the simple portable Mneme/mnion call counter."""
+    """Read the simple portable Mneme/memory-tag call counter."""
     path = Path(state_path).expanduser()
     if not path.exists():
         return 0
@@ -150,7 +152,7 @@ def current_mneme_call_seq(*, state_path: str | Path) -> int:
 
 
 def next_mneme_call_seq(*, state_path: str | Path) -> int:
-    """Increment the simple portable Mneme/mnion call counter."""
+    """Increment the simple portable Mneme/memory-tag call counter."""
     path = Path(state_path).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     seq = current_mneme_call_seq(state_path=path) + 1
@@ -161,12 +163,12 @@ def next_mneme_call_seq(*, state_path: str | Path) -> int:
 
 
 def mneme_call_age(*, birth_call_seq: int, state_path: str | Path) -> int:
-    """Return how many Mneme/mnion calls happened after this mnion was born."""
+    """Return how many Mneme/memory-tag calls happened after this mnion was born."""
     return max(0, current_mneme_call_seq(state_path=state_path) - int(birth_call_seq))
 
 
-def mnion_expired_by_call_age(record: MnionRecord, *, state_path: str | Path) -> bool:
-    """Return whether a mnion exhausted its Mneme/mnion call TTL."""
+def memory_tag_expired_by_call_age(record: MemoryTagRecord, *, state_path: str | Path) -> bool:
+    """Return whether a memory tag exhausted its Mneme/memory-tag call TTL."""
     if record.birth_call_seq <= 0:
         return False
     return mneme_call_age(birth_call_seq=record.birth_call_seq, state_path=state_path) >= record.call_ttl
@@ -180,15 +182,15 @@ def valence_crosses_threshold(
     return valence >= threshold
 
 
-def _new_mnion_record(
-    request: MnionCaptureRequest,
+def _new_memory_tag_record(
+    request: MemoryTagCaptureRequest,
     *,
     birth_call_seq: int,
     captured_at: datetime,
-) -> MnionRecord:
+) -> MemoryTagRecord:
     expires_at = captured_at + timedelta(seconds=request.ttl_seconds)
-    return MnionRecord(
-        id=f"mnion_{uuid.uuid4().hex}",
+    return MemoryTagRecord(
+        id=f"memory_tag_{uuid.uuid4().hex}",
         delta=request.delta.strip(),
         valence=float(request.valence),
         ttl_seconds=request.ttl_seconds,
@@ -209,19 +211,19 @@ def _append_json_line(path: str | Path, payload: dict) -> None:
         handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
 
 
-def capture_mnion(
-    request: MnionCaptureRequest,
+def capture_memory_tag_record(
+    request: MemoryTagCaptureRequest,
     *,
     ledger_path: str | Path,
     state_path: str | Path | None = None,
     now: datetime | None = None,
-) -> MnionRecord:
-    """Append one cheap ephemeral mnion delta and increment Mneme/mnion call seq."""
+) -> MemoryTagRecord:
+    """Append one cheap ephemeral memory tag delta and increment Mneme/memory-tag call seq."""
     _validate_request(request)
     captured_at = now or _utc_now()
     seq_path = _resolve_state_path(ledger_path, state_path)
     birth_call_seq = next_mneme_call_seq(state_path=seq_path)
-    record = _new_mnion_record(request, birth_call_seq=birth_call_seq, captured_at=captured_at)
+    record = _new_memory_tag_record(request, birth_call_seq=birth_call_seq, captured_at=captured_at)
     _append_json_line(ledger_path, asdict(record))
     return record
 
@@ -254,7 +256,7 @@ def _jaccard(left: set[str], right: set[str]) -> float:
     return len(left.intersection(right)) / len(left.union(right))
 
 
-def _similarity_score(candidate: MnionCaptureRequest, record: MnionRecord) -> tuple[float, str]:
+def _similarity_score(candidate: MemoryTagCaptureRequest, record: MemoryTagRecord) -> tuple[float, str]:
     hook_score = _jaccard(_tokens_from_values(candidate.hooks), _tokens_from_values(record.hooks))
     delta_score = _jaccard(_tokens_from_values(candidate.delta), _tokens_from_values(record.delta))
     trigger_score = _jaccard(_tokens_from_values(candidate.trigger), _tokens_from_values(record.trigger))
@@ -296,13 +298,13 @@ def _effective_valence_by_id(ledger_path: str | Path) -> dict[str, float]:
 
 
 def _best_active_match(
-    request: MnionCaptureRequest,
+    request: MemoryTagCaptureRequest,
     *,
     ledger_path: str | Path,
     state_path: str | Path,
     now: datetime,
 ) -> _CandidateMatch | None:
-    active = load_mnions(ledger_path=ledger_path, state_path=state_path, now=now)
+    active = load_memory_tags(ledger_path=ledger_path, state_path=state_path, now=now)
     if not active:
         return None
     effective = _effective_valence_by_id(ledger_path)
@@ -326,9 +328,9 @@ def _reinforced_valence(old: float, candidate: float) -> float:
 
 
 def _reinforcement_event(
-    request: MnionCaptureRequest,
+    request: MemoryTagCaptureRequest,
     *,
-    target: MnionRecord,
+    target: MemoryTagRecord,
     match: _CandidateMatch,
     mneme_call_seq: int,
     captured_at: datetime,
@@ -373,7 +375,7 @@ def _link_event(
 
 
 def capture_memory_tag(
-    request: MnionCaptureRequest,
+    request: MemoryTagCaptureRequest,
     *,
     ledger_path: str | Path,
     state_path: str | Path | None = None,
@@ -408,7 +410,7 @@ def capture_memory_tag(
             event=event,
         )
 
-    record = _new_mnion_record(request, birth_call_seq=seq, captured_at=captured_at)
+    record = _new_memory_tag_record(request, birth_call_seq=seq, captured_at=captured_at)
     _append_json_line(ledger_path, asdict(record))
     if match is not None and match.score >= LINK_THRESHOLD:
         event = _link_event(
@@ -446,20 +448,20 @@ def capture_memory_tag(
     )
 
 
-def _record_from_data(data: dict) -> MnionRecord:
-    """Read current mnion records and tolerate earlier prototype shapes."""
+def _record_from_data(data: dict) -> MemoryTagRecord:
+    """Read current memory tag records and tolerate earlier prototype shapes."""
     if "delta" in data and "id" in data and "event" not in data:
         data = dict(data)
         data.setdefault("call_ttl", DEFAULT_CALL_TTL)
         data.setdefault("birth_call_seq", 0)
-        return MnionRecord(**data)
+        return MemoryTagRecord(**data)
 
     hooks: list[str] = []
     source_ref = str(data.get("source_ref", "")).strip()
     if source_ref:
         hooks.append(source_ref)
 
-    return MnionRecord(
+    return MemoryTagRecord(
         id=str(data["id"]),
         delta=str(data.get("stub", "")).strip(),
         valence=0.0,
@@ -474,15 +476,15 @@ def _record_from_data(data: dict) -> MnionRecord:
     )
 
 
-def load_mnions(
+def load_memory_tags(
     *,
     ledger_path: str | Path,
     state_path: str | Path | None = None,
     now: datetime | None = None,
     include_expired: bool = False,
-    limit: int | None = DEFAULT_ACTIVE_MNION_LIMIT,
-) -> list[MnionRecord]:
-    """Load bounded mnion deltas, hiding wall- or call-expired tags unless requested."""
+    limit: int | None = DEFAULT_ACTIVE_MEMORY_TAG_LIMIT,
+) -> list[MemoryTagRecord]:
+    """Load bounded memory tag deltas, hiding wall- or call-expired tags unless requested."""
     if limit is not None and limit <= 0:
         raise ValueError("limit must be positive or None")
     path = Path(ledger_path).expanduser()
@@ -499,7 +501,7 @@ def load_mnions(
                 refreshed_seq_by_id.get(target_id, 0),
                 int(data.get("mneme_call_seq", 0)),
             )
-    records: list[MnionRecord] = []
+    records: list[MemoryTagRecord] = []
     for data in raw_rows:
         if data.get("event"):
             continue
@@ -515,3 +517,13 @@ def load_mnions(
     if limit is None:
         return records
     return records[-limit:]
+
+
+# Backward-compatible aliases for prototype callers and old runtime records.
+# New code should say MemoryTag* for raw ephemeral captures; "mnion" is
+# reserved for the stable semantic object produced by micro-consolidation.
+MnionCaptureRequest = MemoryTagCaptureRequest
+MnionRecord = MemoryTagRecord
+capture_mnion = capture_memory_tag_record
+load_mnions = load_memory_tags
+mnion_expired_by_call_age = memory_tag_expired_by_call_age

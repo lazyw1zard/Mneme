@@ -19,15 +19,15 @@ def tool_result_parts(result):
 
 
 def test_mcp_server_exposes_single_memory_tag_capture_affordance(tmp_path):
-    server = create_server(ledger_path=tmp_path / "mnions.jsonl")
+    server = create_server(ledger_path=tmp_path / "memory_tags.jsonl")
 
     tools = run(server.list_tools())
 
     assert [tool.name for tool in tools] == ["capture"]
     description = tools[0].description
     assert description == (
-        "Capture an ephemeral memory candidate for a meaningful contour delta "
-        "that may matter later but is not yet durable memory. "
+        "Capture an ephemeral memory tag for a meaningful contour delta "
+        "that may matter later but is not yet a consolidated mnion or durable memory. "
         "Do not use for raw transcripts, secrets, or keyword-triggered saving."
     )
     schema = input_schema(tools[0])
@@ -47,8 +47,8 @@ def test_mcp_server_exposes_single_memory_tag_capture_affordance(tmp_path):
     assert "embedding" not in forbidden
 
 
-def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
-    ledger = tmp_path / "mnions.jsonl"
+def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
     server = create_server(ledger_path=ledger, state_path=state)
 
@@ -66,7 +66,7 @@ def test_mcp_capture_tool_appends_simplified_mnion(tmp_path):
     assert structured["ok"] is True
     assert structured["action"] == "created"
     assert structured["target_id"] == structured["record"]["id"]
-    assert structured["record"]["id"].startswith("mnion_")
+    assert structured["record"]["id"].startswith("memory_tag_")
     assert structured["record"]["delta"] == "Synaptic tagging gives Mneme a cheap capture-first model."
     assert structured["record"]["valence"] == 0.76
     assert structured["record"]["birth_call_seq"] == 1

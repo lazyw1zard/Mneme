@@ -4,18 +4,18 @@ from datetime import datetime, timezone
 from mnion.core import (
     CONSOLIDATION_THRESHOLD,
     DEFAULT_TTL_SECONDS,
-    MnionCaptureRequest,
-    capture_mnion,
-    load_mnions,
+    MemoryTagCaptureRequest,
+    capture_memory_tag_record,
+    load_memory_tags,
     valence_crosses_threshold,
 )
 
 
 def test_default_wall_ttl_is_seven_day_safety_cap_not_one_hour(tmp_path):
-    ledger = tmp_path / "mnions.jsonl"
+    ledger = tmp_path / "memory_tags.jsonl"
 
-    record = capture_mnion(
-        MnionCaptureRequest(delta="default wall ttl should not kill the tag in one hour", valence=0.5),
+    record = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="default wall ttl should not kill the tag in one hour", valence=0.5),
         ledger_path=ledger,
         now=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
@@ -25,9 +25,9 @@ def test_default_wall_ttl_is_seven_day_safety_cap_not_one_hour(tmp_path):
     assert record.expires_at == "2026-01-08T00:00:00Z"
 
 
-def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):
-    ledger = tmp_path / "mnions.jsonl"
-    request = MnionCaptureRequest(
+def test_capture_writes_minimal_memory_tag_delta_valence_ttl_record(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    request = MemoryTagCaptureRequest(
         delta="MCP capture should catch the contour delta before durable memory.",
         valence=0.62,
         ttl_seconds=3600,
@@ -36,9 +36,9 @@ def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):
         affect_hints=["contour_shift", "caution"],
     )
 
-    record = capture_mnion(request, ledger_path=ledger)
+    record = capture_memory_tag_record(request, ledger_path=ledger)
 
-    assert record.id.startswith("mnion_")
+    assert record.id.startswith("memory_tag_")
     assert record.delta == request.delta
     assert record.valence == 0.62
     assert record.ttl_seconds == 3600
@@ -78,29 +78,29 @@ def test_capture_writes_minimal_mnion_delta_valence_ttl_record(tmp_path):
 
 
 def test_capture_requires_bounded_delta_and_normalized_valence(tmp_path):
-    ledger = tmp_path / "mnions.jsonl"
+    ledger = tmp_path / "memory_tags.jsonl"
 
     too_long = "x" * 281
-    request = MnionCaptureRequest(delta=too_long, valence=0.5)
+    request = MemoryTagCaptureRequest(delta=too_long, valence=0.5)
 
     try:
-        capture_mnion(request, ledger_path=ledger)
+        capture_memory_tag_record(request, ledger_path=ledger)
     except ValueError as exc:
         assert "delta" in str(exc)
     else:
         raise AssertionError("expected long delta to be rejected")
 
-    request = MnionCaptureRequest(delta="short", valence=1.2)
+    request = MemoryTagCaptureRequest(delta="short", valence=1.2)
     try:
-        capture_mnion(request, ledger_path=ledger)
+        capture_memory_tag_record(request, ledger_path=ledger)
     except ValueError as exc:
         assert "valence" in str(exc)
     else:
         raise AssertionError("expected out-of-range valence to be rejected")
 
-    request = MnionCaptureRequest(delta="short", valence=0.5, call_ttl=0)
+    request = MemoryTagCaptureRequest(delta="short", valence=0.5, call_ttl=0)
     try:
-        capture_mnion(request, ledger_path=ledger)
+        capture_memory_tag_record(request, ledger_path=ledger)
     except ValueError as exc:
         assert "call_ttl" in str(exc)
     else:
@@ -115,17 +115,17 @@ def test_valence_threshold_is_explicit_and_not_status_field():
     assert valence_crosses_threshold(0.7)
 
 
-def test_load_mnions_skips_expired_by_default(tmp_path):
-    ledger = tmp_path / "mnions.jsonl"
+def test_load_memory_tags_skips_expired_by_default(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
     old_now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    request = MnionCaptureRequest(
+    request = MemoryTagCaptureRequest(
         delta="temporary contour delta",
         valence=0.2,
         ttl_seconds=1,
     )
-    captured = capture_mnion(request, ledger_path=ledger, now=old_now)
+    captured = capture_memory_tag_record(request, ledger_path=ledger, now=old_now)
 
     later = datetime(2026, 1, 1, 0, 0, 2, tzinfo=timezone.utc)
 
-    assert load_mnions(ledger_path=ledger, now=later) == []
-    assert [m.id for m in load_mnions(ledger_path=ledger, now=later, include_expired=True)] == [captured.id]
+    assert load_memory_tags(ledger_path=ledger, now=later) == []
+    assert [m.id for m in load_memory_tags(ledger_path=ledger, now=later, include_expired=True)] == [captured.id]

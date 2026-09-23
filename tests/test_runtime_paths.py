@@ -13,7 +13,7 @@ def test_mneme_state_dir_env_overrides_default(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg-state"))
 
     assert default_state_dir() == root
-    assert default_ledger_path() == root / "mnions.jsonl"
+    assert default_ledger_path() == root / "memory_tags.jsonl"
     assert default_call_state_path() == root / "mneme_seq.json"
 
 

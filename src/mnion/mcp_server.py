@@ -14,12 +14,13 @@ from .core import (
     CONSOLIDATION_THRESHOLD,
     DEFAULT_CALL_TTL,
     DEFAULT_TTL_SECONDS,
-    MnionCaptureRequest,
+    MemoryTagCaptureRequest,
     capture_memory_tag,
     current_mneme_call_seq,
     mneme_call_age,
     valence_crosses_threshold,
 )
+
 
 def default_state_dir() -> Path:
     """Return the portable default runtime state directory."""
@@ -33,7 +34,9 @@ def default_state_dir() -> Path:
 
 
 def default_ledger_path() -> Path:
-    return default_state_dir() / "mnions.jsonl"
+    # Raw ephemeral captures are memory tags. Old prototypes used mnions.jsonl;
+    # migration scripts may read that file, but new default writes memory_tags.
+    return default_state_dir() / "memory_tags.jsonl"
 
 
 def default_call_state_path() -> Path:
@@ -41,8 +44,8 @@ def default_call_state_path() -> Path:
 
 
 CAPTURE_DESCRIPTION = (
-    "Capture an ephemeral memory candidate for a meaningful contour delta "
-    "that may matter later but is not yet durable memory. "
+    "Capture an ephemeral memory tag for a meaningful contour delta "
+    "that may matter later but is not yet a consolidated mnion or durable memory. "
     "Do not use for raw transcripts, secrets, or keyword-triggered saving."
 )
 
@@ -58,7 +61,7 @@ def create_server(
         "memory-tag-capture",
         instructions=(
             "Capture temporary memory tags for meaningful contour deltas. "
-            "This is not durable memory and not automatic promotion."
+            "This is not a consolidated mnion, durable memory, or automatic promotion."
         ),
     )
 
@@ -72,7 +75,7 @@ def create_server(
         trigger: str | None = None,
         affect_hints: list[str] | None = None,
     ) -> dict[str, Any]:
-        request = MnionCaptureRequest(
+        request = MemoryTagCaptureRequest(
             delta=delta,
             valence=valence,
             ttl_seconds=ttl_seconds,
@@ -88,6 +91,8 @@ def create_server(
             "ok": True,
             "action": result.action,
             "target_id": result.target_id,
+            "memory_tag": record_payload,
+            # Compatibility field while existing MCP clients migrate.
             "record": record_payload,
             "linked_ids": result.linked_ids,
             "match_score": result.match_score,
@@ -104,7 +109,7 @@ def create_server(
             "valence_crosses_threshold": crosses,
             "threshold": CONSOLIDATION_THRESHOLD,
             "do_not_infer": [
-                "This is not durable memory.",
+                "This is an ephemeral memory tag, not a consolidated mnion or durable memory.",
                 "This counter counts memory-tag/Mneme calls, not every agent/runtime/model generation.",
                 "Threshold crossing is review pressure, not automatic promotion.",
                 "No embeddings, deep-memory nodes, kernel notes, or engrams were created.",
