@@ -37,7 +37,27 @@ The profile `SOUL.md` is a Hermes runtime adapter, not the canonical semantic ke
 
 ## MCP agent-facing tools
 
-Path:
+Runtime MCP configuration path:
+
+```text
+/home/nira/.hermes/config.yaml
+```
+
+Configured server:
+
+```text
+mcp_servers.memory_tag
+```
+
+The Hermes profile selection includes all intended Mneme tools:
+
+```text
+capture
+list_topics
+get_item
+```
+
+Source path:
 
 ```text
 src/mnion/mcp_server.py
