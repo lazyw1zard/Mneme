@@ -23,7 +23,7 @@ def test_pointer_from_mnion_receipt_is_prompt_safe_and_does_not_load_context():
     assert pointer.route == {
         "kind": "micro_consolidation_review",
         "review_id": "review_abc",
-        "action": "request_context_brief",
+        "action": "get_item",
     }
     assert pointer.source_handles == ["review_abc", "memory_tag_a", "memory_tag_b"]
     assert pointer.valence == 0.86

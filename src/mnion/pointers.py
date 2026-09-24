@@ -73,7 +73,7 @@ def pointer_from_mnion_receipt(receipt: dict[str, Any]) -> MemoryPointer:
         route={
             "kind": "micro_consolidation_review",
             "review_id": review_id,
-            "action": "request_context_brief",
+            "action": "get_item",
         },
         source_handles=source_handles,
         valence=valence,

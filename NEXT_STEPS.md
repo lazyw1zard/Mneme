@@ -360,6 +360,62 @@ Verification:
 - requesting full context is a separate explicit action;
 - no durable memory/kernel/engram write happens automatically.
 
+## Slice 4.5 — SQLite read-model for pointer get_item
+
+Goal: make pointers practically usable without scanning JSONL receipts or exposing SQL to the agent.
+
+Behavior:
+
+```text
+micro_consolidation_reviews.jsonl
+  -> materialize_mnion_items_sqlite(db_path)
+  -> get_item(review_id)
+  -> MnionItem(review_id, mnion, grouped_ids, created_at, guards)
+
+list_topics_for_ingress()
+  -> compact topic map, not a wall of pointer hints
+  -> agent sees a short menu of memory areas
+  -> if relevant: choose topic/pointer
+
+pointer_ingress_hint(pointer)
+  -> agent sees “I know that I know ...” for one selected pointer
+  -> if relevant: get_item(pointer.route.review_id)
+  -> ready mnion object returns
+```
+
+Boundary:
+
+```text
+JSONL receipts = audit/source of truth
+SQLite          = reconstructable read-model / index
+get_item        = agent-facing compact paw
+```
+
+Do not expose SQL, tables, raw receipt scans, or the full memory-tag ledger to the agent. The first useful table can be one `mnion_items` read-model keyed by `review_id`, with semantic fields (`summary`, `valence`, `rationale`) and provenance fields (`grouped_ids_json`, `created_at`, `receipt_json`). Add a compact topic map over these items before injecting individual pointer hints: categories should be understandable memory areas, not a rigid ontology or a long tag dump.
+
+Topic map shape:
+
+```text
+TopicEntry(
+  label,              # human-readable memory area
+  abstraction,        # enough to choose, not enough to flood
+  item_count,
+  top_review_ids,
+  max_valence,
+  freshness
+)
+```
+
+Start with agentic/heuristic labels derived from mnion summaries and hooks, then store them in SQLite as a read-model field. Do not hard-code a final taxonomy until real use shows stable clusters.
+
+Verification:
+
+- materialize current receipts into SQLite;
+- `get_item(review_id)` returns the same mnion stored in the receipt;
+- `resolve_pointer(pointer)` returns the same item through `pointer.route.review_id`;
+- missing review ids return a structured miss, not inferred absence;
+- no automatic prompt injection of full mnions.
+
 ## Slice 5 — local pointer ledger expansion
 
 Goal: prove that a memory pointer can exist without loaded content.
