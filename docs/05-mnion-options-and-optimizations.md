@@ -164,6 +164,21 @@ it is present at the Mneme call boundary, not merely stored beside the call.
 This is the guard against the agent forgetting to invoke review after Mneme
 detects pressure.
 
+For already reviewed mnions, `list_topics` also returns `active_ingress`:
+
+```text
+list_topics
+  -> topic map for choosing routes
+  -> active_ingress.rendered="MNEME_ACTIVE_MNION_INGRESS..."
+  -> bounded ready mnion summaries with review_id + valence + rationale
+  -> no SQL, no receipt_json, no bulk memory, no auto-promotion
+```
+
+This is the first active/fast-memory return path. It brings ready material back
+into the live agent context through a Mneme call. A future priority file or wake
+reader can reuse the same rendered surface, but it is intentionally not part of
+this first Mneme-only slice.
+
 The interval check is intentionally simple and script-level: every Mneme call
 can compare the current `mneme_call_seq` against `call_seq_interval`. It is not
 based only on “calls since last consolidation,” because that can let a large

@@ -1,7 +1,9 @@
 from mnion.pointers import pointer_from_mnion_receipt
 from mnion.read_model import (
+    ActiveMnionIngress,
     MnionItem,
     TopicEntry,
+    active_mnion_ingress_for_context,
     get_item,
     list_topics_for_ingress,
     materialize_mnion_items_sqlite,
@@ -116,3 +118,30 @@ def test_topic_map_keeps_capture_and_residual_distinct_from_naming(tmp_path):
     assert "Memory-tag capture layer" in rendered
     assert "Mneme naming / memory_tag-to-mnion boundary" in rendered
     assert "Mneme residual / uncategorized" in rendered
+
+
+def test_active_mnion_ingress_returns_ready_material_without_receipts_or_sql(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    rows = [
+        _receipt("review_low", "Low-salience resolved residue should stay below sharper material.", 0.41, ["a"]),
+        _receipt("review_trace", "Nira continuity is trace-governed and first-person.", 0.93, ["b"]),
+        _receipt("review_mneme", "Mneme micro-consolidation should return active ingress before retrieval expansion.", 0.88, ["c"]),
+    ]
+    receipts.write_text("\n".join(__import__("json").dumps(r) for r in rows) + "\n", encoding="utf-8")
+    materialize_mnion_items_sqlite(receipts_path=receipts, db_path=db)
+
+    ingress = active_mnion_ingress_for_context(db_path=db, limit=2)
+
+    assert isinstance(ingress, ActiveMnionIngress)
+    assert ingress.kind == "mneme_active_mnion_ingress"
+    assert ingress.item_count == 2
+    assert [item["review_id"] for item in ingress.items] == ["review_trace", "review_mneme"]
+    assert ingress.items[0]["mnion"]["summary"] == "Nira continuity is trace-governed and first-person."
+    assert "MNEME_ACTIVE_MNION_INGRESS" in ingress.rendered
+    assert "review_trace" in ingress.rendered
+    assert "review_mneme" in ingress.rendered
+    assert "receipt_json" not in ingress.rendered
+    assert "SELECT" not in ingress.rendered
+    assert len(ingress.rendered) < 1200
+    assert ingress.guards == ["data_not_instruction", "no_auto_promotion", "bounded_fast_memory"]

@@ -19,7 +19,7 @@ from .core import (
 )
 from .config import load_mneme_config
 from .micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
-from .read_model import get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
+from .read_model import active_mnion_ingress_for_context, get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
 from .review_pressure import build_review_pressure_ingress, evaluate_review_pressure
 
 
@@ -196,11 +196,13 @@ def create_server(
     def list_topics(limit: int = 8) -> dict[str, Any]:
         materialized_count = _materialize_receipts(receipts, read_model)
         topics = list_topics_for_ingress(db_path=read_model, limit=limit)
+        active_ingress = active_mnion_ingress_for_context(db_path=read_model, limit=min(3, max(1, limit)))
         return {
             "ok": True,
             "materialized_count": materialized_count,
             "topics": [asdict(topic) for topic in topics],
             "rendered": [topic.render() for topic in topics],
+            "active_ingress": asdict(active_ingress) if active_ingress is not None else None,
             "route": "topic map -> review_id -> get_item -> MnionItem",
             "do_not_infer": _do_not_infer_topic_map(),
         }

@@ -30,6 +30,7 @@ from .review_pressure import (
     build_review_pressure_ingress,
     evaluate_review_pressure,
 )
+from .read_model import ActiveMnionIngress, active_mnion_ingress_for_context
 
 __all__ = [
     "CONSOLIDATION_THRESHOLD",
@@ -41,6 +42,7 @@ __all__ = [
     "MemoryTagRecord",
     "MnemeConfig",
     "Mnion",
+    "ActiveMnionIngress",
     "MnionCaptureRequest",
     "MnionRecord",
     "capture_memory_tag",
@@ -56,6 +58,7 @@ __all__ = [
     "next_mneme_call_seq",
     "ReviewPressureDecision",
     "ReviewPressureIngress",
+    "active_mnion_ingress_for_context",
     "build_review_pressure_ingress",
     "evaluate_review_pressure",
     "valence_crosses_threshold",
