@@ -1,6 +1,7 @@
 from mnion.config import MnemeConfig, load_mneme_config
 from mnion.core import MemoryTagCaptureRequest, capture_memory_tag
-from mnion.review_pressure import evaluate_review_pressure
+from mnion.micro_consolidation import prepare_micro_consolidation_request
+from mnion.review_pressure import build_review_pressure_ingress, evaluate_review_pressure
 
 
 def test_mneme_config_loads_memory_tag_and_review_pressure_values(tmp_path):
@@ -131,3 +132,44 @@ def test_review_pressure_interval_does_not_trigger_without_unread_active_materia
     assert decision.needed is False
     assert decision.reasons == ["no_active_unread_memory_tags"]
     assert decision.semantic_auto_consolidation is False
+
+
+def test_review_pressure_ingress_hands_bounded_packet_to_agent_input(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    config = MnemeConfig()
+    result = capture_memory_tag(
+        MemoryTagCaptureRequest(
+            delta="Mneme should hand review packets to the live agent input when pressure triggers",
+            valence=0.91,
+            hooks=["project:mneme", "concept:agent_ingress"],
+            trigger="operator_correction",
+        ),
+        ledger_path=ledger,
+        state_path=state,
+    )
+    request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=config.review_pressure.packet_limit,
+    )
+    decision = evaluate_review_pressure(
+        capture_result=result,
+        active_unread_count=request.selection.unread_active_count,
+        config=config,
+    )
+
+    ingress = build_review_pressure_ingress(decision=decision, review_request=request)
+
+    assert ingress is not None
+    assert ingress.kind == "mneme_review_pressure_ingress"
+    assert ingress.suggested_action == "agentic_micro_consolidation_review"
+    assert ingress.semantic_auto_consolidation is False
+    assert ingress.packet_limit == config.review_pressure.packet_limit
+    assert ingress.selected_ids == [result.target_id]
+    assert ingress.prompt.startswith("Find semantically close memory tags")
+    assert ingress.expected_output_schema["summary"]
+    assert ingress.memory_tags[0]["id"] == result.target_id
+    assert "MNEME_REVIEW_PRESSURE" in ingress.rendered
+    assert result.target_id in ingress.rendered
+    assert "Do not auto-promote" in ingress.rendered

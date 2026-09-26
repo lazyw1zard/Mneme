@@ -20,7 +20,7 @@ from .core import (
 from .config import load_mneme_config
 from .micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
 from .read_model import get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
-from .review_pressure import evaluate_review_pressure
+from .review_pressure import build_review_pressure_ingress, evaluate_review_pressure
 
 
 def default_state_dir() -> Path:
@@ -149,6 +149,7 @@ def create_server(
             active_unread_count=review_request.selection.unread_active_count,
             config=config,
         )
+        ingress = build_review_pressure_ingress(decision=pressure, review_request=review_request)
         return {
             "ok": True,
             "action": result.action,
@@ -171,6 +172,7 @@ def create_server(
             "valence_crosses_threshold": crosses,
             "threshold": config.memory_tag.high_valence_threshold,
             "review_pressure": asdict(pressure),
+            "agent_ingress": asdict(ingress) if ingress is not None else None,
             "review_packet": {
                 "packet_limit": review_request.packet_limit,
                 "selected_ids": review_request.selection.selected_ids,

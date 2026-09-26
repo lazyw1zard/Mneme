@@ -24,7 +24,12 @@ from .core import (
 )
 from .config import MnemeConfig, load_mneme_config
 from .micro_consolidation import Mnion
-from .review_pressure import ReviewPressureDecision, evaluate_review_pressure
+from .review_pressure import (
+    ReviewPressureDecision,
+    ReviewPressureIngress,
+    build_review_pressure_ingress,
+    evaluate_review_pressure,
+)
 
 __all__ = [
     "CONSOLIDATION_THRESHOLD",
@@ -50,6 +55,8 @@ __all__ = [
     "mnion_expired_by_call_age",
     "next_mneme_call_seq",
     "ReviewPressureDecision",
+    "ReviewPressureIngress",
+    "build_review_pressure_ingress",
     "evaluate_review_pressure",
     "valence_crosses_threshold",
 ]

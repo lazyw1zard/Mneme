@@ -17,6 +17,21 @@ class ReviewPressureDecision:
     semantic_auto_consolidation: bool = False
 
 
+@dataclass(frozen=True)
+class ReviewPressureIngress:
+    kind: str
+    rendered: str
+    suggested_action: str
+    reasons: list[str]
+    mneme_call_seq: int
+    packet_limit: int
+    selected_ids: list[str]
+    memory_tags: list[dict[str, Any]]
+    prompt: str
+    expected_output_schema: dict[str, str]
+    semantic_auto_consolidation: bool = False
+
+
 def evaluate_review_pressure(
     *,
     capture_result: Any,
@@ -74,3 +89,68 @@ def evaluate_review_pressure(
         suggested_action="prepare_micro_consolidation_request" if reasons else None,
         semantic_auto_consolidation=False,
     )
+
+
+def build_review_pressure_ingress(*, decision: ReviewPressureDecision, review_request: Any) -> ReviewPressureIngress | None:
+    """Render a pressure-triggered review packet as direct agent input.
+
+    The structured packet is useful for tools, but the live agent also needs an
+    unmistakable ingress brief in the tool result so the packet is not merely
+    prepared and then forgotten.
+    """
+    if not decision.needed:
+        return None
+    selected_ids = list(review_request.selection.selected_ids)
+    memory_tags = [
+        {
+            "id": tag.id,
+            "delta": tag.delta,
+            "valence": tag.valence,
+            "hooks": list(tag.hooks),
+            "trigger": tag.trigger,
+            "affect_hints": list(tag.affect_hints),
+            "birth_call_seq": tag.birth_call_seq,
+        }
+        for tag in review_request.memory_tags
+    ]
+    rendered = _render_review_pressure_ingress(
+        decision=decision,
+        selected_ids=selected_ids,
+        memory_tags=memory_tags,
+    )
+    return ReviewPressureIngress(
+        kind="mneme_review_pressure_ingress",
+        rendered=rendered,
+        suggested_action="agentic_micro_consolidation_review",
+        reasons=list(decision.reasons),
+        mneme_call_seq=decision.mneme_call_seq,
+        packet_limit=review_request.packet_limit,
+        selected_ids=selected_ids,
+        memory_tags=memory_tags,
+        prompt=review_request.prompt,
+        expected_output_schema=dict(review_request.expected_output_schema),
+        semantic_auto_consolidation=False,
+    )
+
+
+def _render_review_pressure_ingress(
+    *,
+    decision: ReviewPressureDecision,
+    selected_ids: list[str],
+    memory_tags: list[dict[str, Any]],
+) -> str:
+    lines = [
+        "MNEME_REVIEW_PRESSURE",
+        f"mneme_call_seq: {decision.mneme_call_seq}",
+        f"reasons: {', '.join(decision.reasons)}",
+        "suggested_action: agentic_micro_consolidation_review",
+        "boundary: Do not auto-promote; do not write kernel/engram; perform agentic semantic review only if you take this up now.",
+        f"selected_ids: {', '.join(selected_ids)}",
+        "memory_tags:",
+    ]
+    for tag in memory_tags:
+        hooks = ",".join(tag.get("hooks") or [])
+        lines.append(
+            f"- {tag['id']} | valence={tag['valence']} | hooks={hooks} | delta={tag['delta']}"
+        )
+    return "\n".join(lines)

@@ -154,8 +154,15 @@ capture/touch
        return review_pressure.needed=true
        return suggested_action="prepare_micro_consolidation_request"
        return bounded review_packet metadata
+       return agent_ingress.rendered="MNEME_REVIEW_PRESSURE..."
   -> no model call, no mnion receipt, no pointer, no kernel/engram write
 ```
+
+`review_packet` is the structured bounded packet. `agent_ingress` is the same
+pressure handed directly to the live agent in a rendered tool-result brief so
+it is present at the Mneme call boundary, not merely stored beside the call.
+This is the guard against the agent forgetting to invoke review after Mneme
+detects pressure.
 
 The interval check is intentionally simple and script-level: every Mneme call
 can compare the current `mneme_call_seq` against `call_seq_interval`. It is not
