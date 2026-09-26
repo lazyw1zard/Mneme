@@ -123,18 +123,44 @@ Do not add config until values need tuning in practice. When needed, prefer a sm
 ~/.config/mneme/config.toml
 ```
 
-Candidate shape:
+Implemented shape:
 
 ```toml
-[mnion]
+[memory_tag]
 default_ttl_seconds = 604800
 default_call_ttl = 32
 active_limit = 20
-consolidation_threshold = 0.7
+high_valence_threshold = 0.7
+
+[review_pressure]
+enabled = true
+call_seq_interval = 10
+trigger_on_high_valence = true
+trigger_on_interval = true
+packet_limit = 6
 
 [storage]
 state_dir = "~/.local/state/mneme"
 ```
+
+Review pressure is checked on Mneme/memory-tag calls. This is an automatic
+**invocation signal** for agentic review, not automatic semantic consolidation:
+
+```text
+capture/touch
+  -> increment mneme_call_seq
+  -> inspect active unread memory_tags
+  -> if high confirmed valence or seq interval says pressure:
+       return review_pressure.needed=true
+       return suggested_action="prepare_micro_consolidation_request"
+       return bounded review_packet metadata
+  -> no model call, no mnion receipt, no pointer, no kernel/engram write
+```
+
+The interval check is intentionally simple and script-level: every Mneme call
+can compare the current `mneme_call_seq` against `call_seq_interval`. It is not
+based only on “calls since last consolidation,” because that can let a large
+unreviewed tag pile accumulate if the live agent forgets to review.
 
 Rules for config:
 

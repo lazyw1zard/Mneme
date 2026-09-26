@@ -79,6 +79,16 @@ def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     assert structured["record"]["hooks"] == ["telegram:current_turn"]
     assert structured["record"]["affect_hints"] == ["curiosity", "contour_shift"]
     assert structured["valence_crosses_threshold"] is True
+    assert structured["review_pressure"]["needed"] is True
+    assert structured["review_pressure"]["reasons"] == ["high_valence"]
+    assert structured["review_pressure"]["suggested_action"] == "prepare_micro_consolidation_request"
+    assert structured["review_pressure"]["semantic_auto_consolidation"] is False
+    assert structured["review_packet"]["packet_limit"] == 6
+    assert structured["review_packet"]["active_unread_count"] == 1
+    assert structured["review_packet"]["selected_ids"] == [structured["record"]["id"]]
+    assert structured["review_packet"]["prompt"].startswith("Find semantically close memory tags")
+    assert structured["review_packet"]["expected_output_schema"]["summary"]
+    assert [tag["id"] for tag in structured["review_packet"]["memory_tags"]] == [structured["record"]["id"]]
     assert content_blocks[0].type == "text"
     assert ledger.exists()
     raw = json.loads(ledger.read_text(encoding="utf-8").strip())

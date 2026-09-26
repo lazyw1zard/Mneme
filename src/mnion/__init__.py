@@ -22,7 +22,9 @@ from .core import (
     next_mneme_call_seq,
     valence_crosses_threshold,
 )
+from .config import MnemeConfig, load_mneme_config
 from .micro_consolidation import Mnion
+from .review_pressure import ReviewPressureDecision, evaluate_review_pressure
 
 __all__ = [
     "CONSOLIDATION_THRESHOLD",
@@ -32,6 +34,7 @@ __all__ = [
     "DEFAULT_TTL_SECONDS",
     "MemoryTagCaptureRequest",
     "MemoryTagRecord",
+    "MnemeConfig",
     "Mnion",
     "MnionCaptureRequest",
     "MnionRecord",
@@ -41,9 +44,12 @@ __all__ = [
     "current_mneme_call_seq",
     "load_memory_tags",
     "load_mnions",
+    "load_mneme_config",
     "memory_tag_expired_by_call_age",
     "mneme_call_age",
     "mnion_expired_by_call_age",
     "next_mneme_call_seq",
+    "ReviewPressureDecision",
+    "evaluate_review_pressure",
     "valence_crosses_threshold",
 ]

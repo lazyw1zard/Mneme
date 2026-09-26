@@ -11,16 +11,16 @@ except ImportError:  # MCP Python SDK 1.x
     from mcp.server.fastmcp import FastMCP
 
 from .core import (
-    CONSOLIDATION_THRESHOLD,
-    DEFAULT_CALL_TTL,
-    DEFAULT_TTL_SECONDS,
     MemoryTagCaptureRequest,
     capture_memory_tag,
     current_mneme_call_seq,
     mneme_call_age,
     valence_crosses_threshold,
 )
+from .config import load_mneme_config
+from .micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
 from .read_model import get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
+from .review_pressure import evaluate_review_pressure
 
 
 def default_state_dir() -> Path:
@@ -97,11 +97,16 @@ def create_server(
     state_path: str | Path | None = None,
     receipts_path: str | Path | None = None,
     read_model_path: str | Path | None = None,
+    config_path: str | Path | None = None,
 ) -> FastMCP:
-    ledger = Path(ledger_path).expanduser() if ledger_path is not None else default_ledger_path()
-    state = Path(state_path).expanduser() if state_path is not None else default_call_state_path()
-    receipts = Path(receipts_path).expanduser() if receipts_path is not None else default_receipts_path()
-    read_model = Path(read_model_path).expanduser() if read_model_path is not None else default_read_model_path()
+    config = load_mneme_config(config_path)
+    configured_state_dir = config.storage.state_dir
+    env_state_selected = bool(os.environ.get("MNEME_STATE_DIR") or os.environ.get("XDG_STATE_HOME"))
+    state_dir = default_state_dir() if env_state_selected else configured_state_dir
+    ledger = Path(ledger_path).expanduser() if ledger_path is not None else state_dir / "memory_tags.jsonl"
+    state = Path(state_path).expanduser() if state_path is not None else state_dir / "mneme_seq.json"
+    receipts = Path(receipts_path).expanduser() if receipts_path is not None else state_dir / "micro_consolidation_reviews.jsonl"
+    read_model = Path(read_model_path).expanduser() if read_model_path is not None else state_dir / "mneme_read_model.sqlite3"
     server = FastMCP(
         "memory-tag-capture",
         instructions=MNEME_SERVER_INSTRUCTIONS,
@@ -111,8 +116,8 @@ def create_server(
     def capture(
         delta: str,
         valence: float,
-        ttl_seconds: int = DEFAULT_TTL_SECONDS,
-        call_ttl: int = DEFAULT_CALL_TTL,
+        ttl_seconds: int = config.memory_tag.default_ttl_seconds,
+        call_ttl: int = config.memory_tag.default_call_ttl,
         hooks: list[str] | None = None,
         trigger: str | None = None,
         affect_hints: list[str] | None = None,
@@ -128,7 +133,22 @@ def create_server(
         )
         result = capture_memory_tag(request, ledger_path=ledger, state_path=state)
         record_payload = asdict(result.record) if result.record is not None else None
-        crosses = valence_crosses_threshold(result.valence_after)
+        crosses = valence_crosses_threshold(
+            result.valence_after,
+            threshold=config.memory_tag.high_valence_threshold,
+        )
+        review_receipts = load_micro_consolidation_review_receipts(receipts)
+        review_request = prepare_micro_consolidation_request(
+            ledger_path=ledger,
+            state_path=state,
+            packet_limit=config.review_pressure.packet_limit,
+            review_receipts=review_receipts,
+        )
+        pressure = evaluate_review_pressure(
+            capture_result=result,
+            active_unread_count=review_request.selection.unread_active_count,
+            config=config,
+        )
         return {
             "ok": True,
             "action": result.action,
@@ -149,11 +169,23 @@ def create_server(
                 else 0
             ),
             "valence_crosses_threshold": crosses,
-            "threshold": CONSOLIDATION_THRESHOLD,
+            "threshold": config.memory_tag.high_valence_threshold,
+            "review_pressure": asdict(pressure),
+            "review_packet": {
+                "packet_limit": review_request.packet_limit,
+                "selected_ids": review_request.selection.selected_ids,
+                "memory_tags": [asdict(tag) for tag in review_request.memory_tags] if pressure.needed else [],
+                "prompt": review_request.prompt if pressure.needed else None,
+                "expected_output_schema": review_request.expected_output_schema if pressure.needed else {},
+                "active_unread_count": review_request.selection.unread_active_count,
+                "reviewed_active_count": review_request.selection.reviewed_active_count,
+                "deferred_count": review_request.selection.deferred_count,
+                "reason": review_request.reason,
+            },
             "do_not_infer": [
                 "This is an ephemeral memory tag, not a consolidated mnion or durable memory.",
                 "This counter counts memory-tag/Mneme calls, not every agent/runtime/model generation.",
-                "Threshold crossing is review pressure, not automatic promotion.",
+                "Review pressure may invite an agentic micro-consolidation call; it is not semantic auto-consolidation or promotion.",
                 "No embeddings, deep-memory nodes, kernel notes, or engrams were created.",
             ],
         }
