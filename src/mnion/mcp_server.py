@@ -15,12 +15,21 @@ from .core import (
     capture_memory_tag,
     current_mneme_call_seq,
     mneme_call_age,
+    validate_memory_tag_capture_request,
     valence_crosses_threshold,
 )
 from .config import load_mneme_config
 from .micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
 from .read_model import active_mnion_ingress_for_context, get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
 from .review_pressure import build_review_pressure_ingress, evaluate_review_pressure
+from .review_pressure_state import (
+    clear_pending_review,
+    load_pending_review,
+    pending_review_is_resolved,
+    pending_review_path_for_state_dir,
+    pending_review_schema_errors,
+    write_pending_review,
+)
 
 
 def default_state_dir() -> Path:
@@ -91,12 +100,109 @@ def _materialize_receipts(receipts: Path, read_model: Path) -> int:
     return materialize_mnion_items_sqlite(receipts_path=receipts, db_path=read_model)
 
 
+def _proposed_capture_payload(request: MemoryTagCaptureRequest) -> dict[str, Any]:
+    return {
+        "delta": request.delta,
+        "valence": request.valence,
+        "ttl_seconds": request.ttl_seconds,
+        "call_ttl": request.call_ttl,
+        "hooks": list(request.hooks or []),
+        "trigger": request.trigger,
+        "affect_hints": list(request.affect_hints or []),
+    }
+
+
+def _pending_review_redirect_response(
+    *,
+    pending_review: dict[str, Any],
+    request: MemoryTagCaptureRequest,
+    state: Path,
+) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "action": "redirected_to_pending_review",
+        "target_id": None,
+        "memory_tag": None,
+        # Compatibility field while existing MCP clients migrate.
+        "record": None,
+        "linked_ids": [],
+        "match_score": None,
+        "reason": "pending_review_write_barrier",
+        "valence_before": None,
+        "valence_after": None,
+        "event": None,
+        "mneme_call_seq": current_mneme_call_seq(state_path=state),
+        "mneme_call_age": 0,
+        "valence_crosses_threshold": False,
+        "threshold": None,
+        "review_pressure": pending_review.get("review_pressure", {}),
+        "agent_ingress": pending_review.get("agent_ingress"),
+        "review_packet": pending_review.get("review_packet", {}),
+        "pending_review": {
+            "kind": pending_review.get("kind"),
+            "status": pending_review.get("status"),
+            "created_at": pending_review.get("created_at"),
+            "selected_ids": pending_review.get("selected_ids", []),
+            "reasons": pending_review.get("reasons", []),
+        },
+        "proposed_capture": _proposed_capture_payload(request),
+        "do_not_infer": [
+            "A pending Mneme review exists; ordinary capture was not appended.",
+            "This is a redirect to agentic micro-consolidation review, not semantic auto-consolidation.",
+            "No new memory_tag, kernel note, engram, internal read-model row, or durable semantic promotion was created by this redirect.",
+        ],
+    }
+
+
+def _invalid_pending_review_response(
+    *,
+    pending_review: dict[str, Any],
+    errors: list[str],
+    request: MemoryTagCaptureRequest,
+    state: Path,
+) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "action": "blocked_by_invalid_pending_review",
+        "target_id": None,
+        "memory_tag": None,
+        "record": None,
+        "linked_ids": [],
+        "match_score": None,
+        "reason": "invalid_pending_review_latch",
+        "valence_before": None,
+        "valence_after": None,
+        "event": None,
+        "mneme_call_seq": current_mneme_call_seq(state_path=state),
+        "mneme_call_age": 0,
+        "valence_crosses_threshold": False,
+        "threshold": None,
+        "review_pressure": pending_review.get("review_pressure", {}),
+        "agent_ingress": pending_review.get("agent_ingress"),
+        "review_packet": pending_review.get("review_packet", {}),
+        "pending_review": {
+            "valid": False,
+            "errors": errors,
+            "kind": pending_review.get("kind"),
+            "status": pending_review.get("status"),
+        },
+        "proposed_capture": _proposed_capture_payload(request),
+        "do_not_infer": [
+            "A pending Mneme review latch exists but is malformed; ordinary capture was not appended.",
+            "Fail closed: repair or resolve the pending-review latch before capturing more memory tags.",
+            "No new memory_tag, kernel note, engram, or durable semantic promotion was created by this response.",
+        ],
+    }
+
+
+
 def create_server(
     *,
     ledger_path: str | Path | None = None,
     state_path: str | Path | None = None,
     receipts_path: str | Path | None = None,
     read_model_path: str | Path | None = None,
+    pending_review_path: str | Path | None = None,
     config_path: str | Path | None = None,
 ) -> FastMCP:
     config = load_mneme_config(config_path)
@@ -107,6 +213,11 @@ def create_server(
     state = Path(state_path).expanduser() if state_path is not None else state_dir / "mneme_seq.json"
     receipts = Path(receipts_path).expanduser() if receipts_path is not None else state_dir / "micro_consolidation_reviews.jsonl"
     read_model = Path(read_model_path).expanduser() if read_model_path is not None else state_dir / "mneme_read_model.sqlite3"
+    pending_review = (
+        Path(pending_review_path).expanduser()
+        if pending_review_path is not None
+        else pending_review_path_for_state_dir(ledger.parent if ledger_path is not None else state_dir)
+    )
     server = FastMCP(
         "memory-tag-capture",
         instructions=MNEME_SERVER_INSTRUCTIONS,
@@ -131,13 +242,39 @@ def create_server(
             trigger=trigger,
             affect_hints=affect_hints,
         )
+        validate_memory_tag_capture_request(request)
+        review_receipts = load_micro_consolidation_review_receipts(receipts)
+        try:
+            pending_payload = load_pending_review(pending_review)
+        except ValueError:
+            pending_payload = {
+                "kind": "mneme_pending_review",
+                "status": "invalid_load",
+            }
+        if pending_payload is not None:
+            pending_errors = pending_review_schema_errors(pending_payload)
+            if pending_errors:
+                return _invalid_pending_review_response(
+                    pending_review=pending_payload,
+                    errors=pending_errors,
+                    request=request,
+                    state=state,
+                )
+            if pending_review_is_resolved(pending_payload, review_receipts):
+                clear_pending_review(pending_review)
+            else:
+                return _pending_review_redirect_response(
+                    pending_review=pending_payload,
+                    request=request,
+                    state=state,
+                )
+
         result = capture_memory_tag(request, ledger_path=ledger, state_path=state)
         record_payload = asdict(result.record) if result.record is not None else None
         crosses = valence_crosses_threshold(
             result.valence_after,
             threshold=config.memory_tag.high_valence_threshold,
         )
-        review_receipts = load_micro_consolidation_review_receipts(receipts)
         review_request = prepare_micro_consolidation_request(
             ledger_path=ledger,
             state_path=state,
@@ -150,6 +287,13 @@ def create_server(
             config=config,
         )
         ingress = build_review_pressure_ingress(decision=pressure, review_request=review_request)
+        if pressure.needed and ingress is not None:
+            write_pending_review(
+                pending_review,
+                decision=pressure,
+                review_request=review_request,
+                ingress=ingress,
+            )
         return {
             "ok": True,
             "action": result.action,

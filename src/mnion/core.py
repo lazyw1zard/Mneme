@@ -121,7 +121,8 @@ def _clean_trigger(value: str | None) -> str | None:
     return cleaned or None
 
 
-def _validate_request(request: MemoryTagCaptureRequest) -> None:
+def validate_memory_tag_capture_request(request: MemoryTagCaptureRequest) -> None:
+    """Validate a capture request without mutating ledger or call sequence."""
     delta = request.delta.strip()
     if not delta:
         raise ValueError("delta is required")
@@ -133,6 +134,10 @@ def _validate_request(request: MemoryTagCaptureRequest) -> None:
         raise ValueError("ttl_seconds must be positive")
     if request.call_ttl <= 0:
         raise ValueError("call_ttl must be positive")
+
+
+# Private compatibility alias for older in-module call sites.
+_validate_request = validate_memory_tag_capture_request
 
 
 def _resolve_state_path(ledger_path: str | Path, state_path: str | Path | None) -> Path:
