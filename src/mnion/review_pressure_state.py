@@ -39,8 +39,14 @@ def load_pending_review(path: str | Path) -> dict[str, Any] | None:
 def _selected_id_list(value: Any) -> list[str] | None:
     if not isinstance(value, list) or not value:
         return None
-    selected = [str(item).strip() for item in value]
-    if any(not item for item in selected):
+    selected: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            return None
+        if item != item.strip() or not item:
+            return None
+        selected.append(item)
+    if len(set(selected)) != len(selected):
         return None
     return selected
 
@@ -122,6 +128,8 @@ def write_pending_review(
             "memory_tags": memory_tags,
             "prompt": review_request.prompt,
             "expected_output_schema": dict(review_request.expected_output_schema),
+            "next_tool": getattr(ingress, "next_tool", "consolidate_review"),
+            "tool_guidance": getattr(ingress, "tool_guidance", {}),
             "active_unread_count": review_request.selection.unread_active_count,
             "reviewed_active_count": review_request.selection.reviewed_active_count,
             "deferred_count": review_request.selection.deferred_count,

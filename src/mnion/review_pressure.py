@@ -29,7 +29,26 @@ class ReviewPressureIngress:
     memory_tags: list[dict[str, Any]]
     prompt: str
     expected_output_schema: dict[str, str]
+    next_tool: str
+    tool_guidance: dict[str, Any]
     semantic_auto_consolidation: bool = False
+
+
+def consolidate_review_tool_guidance(selected_ids: list[str]) -> dict[str, Any]:
+    """Return compact agent-facing guidance for closing pending Mneme review."""
+    return {
+        "tool": "consolidate_review",
+        "purpose": "Record an agent-authored micro-consolidation mnion for the current pending review and lift the capture write-barrier.",
+        "required_fields": ["selected_ids", "summary", "valence", "member_ids"],
+        "optional_fields": ["rationale"],
+        "selected_ids": list(selected_ids),
+        "constraints": [
+            "selected_ids must exactly match the pending review packet ids",
+            "summary and rationale are written by the live agent; Mneme does not auto-generate semantics",
+            "member_ids must be selected memory_tag ids included in this mnion",
+            "this does not write kernel notes, engrams, embeddings, or external effects",
+        ],
+    }
 
 
 def evaluate_review_pressure(
@@ -129,6 +148,8 @@ def build_review_pressure_ingress(*, decision: ReviewPressureDecision, review_re
         memory_tags=memory_tags,
         prompt=review_request.prompt,
         expected_output_schema=dict(review_request.expected_output_schema),
+        next_tool="consolidate_review",
+        tool_guidance=consolidate_review_tool_guidance(selected_ids),
         semantic_auto_consolidation=False,
     )
 
@@ -144,6 +165,7 @@ def _render_review_pressure_ingress(
         f"mneme_call_seq: {decision.mneme_call_seq}",
         f"reasons: {', '.join(decision.reasons)}",
         "suggested_action: agentic_micro_consolidation_review",
+        "next_tool: consolidate_review",
         "boundary: Do not auto-promote; do not write kernel/engram; perform agentic semantic review only if you take this up now.",
         f"selected_ids: {', '.join(selected_ids)}",
         "memory_tags:",

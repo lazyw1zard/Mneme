@@ -23,7 +23,7 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
 
     tools = run(server.list_tools())
 
-    assert [tool.name for tool in tools] == ["capture", "list_topics", "get_item"]
+    assert [tool.name for tool in tools] == ["capture", "consolidate_review", "list_topics", "get_item"]
     by_name = {tool.name: tool for tool in tools}
     description = by_name["capture"].description
     assert description == (
@@ -31,6 +31,7 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
         "that may matter later but is not yet a consolidated mnion or durable memory. "
         "Do not use for raw transcripts, secrets, or keyword-triggered saving."
     )
+    assert "Close the current pending Mneme review" in by_name["consolidate_review"].description
     assert "compact Mneme topic map" in by_name["list_topics"].description
     assert "ready MnionItem" in by_name["get_item"].description
     schema = input_schema(by_name["capture"])
@@ -40,6 +41,13 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
     assert "call_ttl" in schema["properties"]
     assert "hooks" in schema["properties"]
     assert "affect_hints" in schema["properties"]
+    consolidate_schema = input_schema(by_name["consolidate_review"])
+    assert consolidate_schema is not None
+    assert "selected_ids" in consolidate_schema["properties"]
+    assert "summary" in consolidate_schema["properties"]
+    assert "valence" in consolidate_schema["properties"]
+    assert "member_ids" in consolidate_schema["properties"]
+    assert "rationale" in consolidate_schema["properties"]
     forbidden = json.dumps(schema).lower()
     assert "kind" not in forbidden
     assert "status" not in forbidden
@@ -109,11 +117,13 @@ def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_pa
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    read_model = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
     server = create_server(
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
+        read_model_path=read_model,
         pending_review_path=pending,
     )
 
@@ -189,6 +199,431 @@ def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_pa
     assert third["action"] == "created"
     assert third["record"]["delta"] == "Capture after covered pending review should proceed."
     assert not pending.exists()
+
+
+
+def test_mcp_consolidate_review_records_receipt_clears_barrier_and_materializes_item(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    pending = tmp_path / "pending_review.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=db,
+        pending_review_path=pending,
+    )
+
+    first_result = run(server.call_tool("capture", {
+        "delta": "Claude-facing Mneme needs an MCP tool to close pending reviews.",
+        "valence": 0.93,
+        "hooks": ["project:mneme", "surface:mcp"],
+        "trigger": "claude_blocked_by_write_barrier",
+    }))
+    _, first = tool_result_parts(first_result)
+    selected_ids = first["review_packet"]["selected_ids"]
+
+    assert first["review_pressure"]["needed"] is True
+    assert first["agent_ingress"]["next_tool"] == "consolidate_review"
+    assert first["review_packet"]["next_tool"] == "consolidate_review"
+    assert pending.exists()
+
+    redirect_result = run(server.call_tool("capture", {
+        "delta": "This capture should be held until the pending review is consolidated.",
+        "valence": 0.21,
+        "hooks": ["project:mneme"],
+        "trigger": "pending_barrier_guidance",
+    }))
+    _, redirect = tool_result_parts(redirect_result)
+    assert redirect["ok"] is False
+    assert redirect["action"] == "redirected_to_pending_review"
+    assert redirect["next_tool"] == "consolidate_review"
+    assert redirect["tool_guidance"]["tool"] == "consolidate_review"
+    assert redirect["tool_guidance"]["required_fields"] == ["selected_ids", "summary", "valence", "member_ids"]
+    assert redirect["tool_guidance"]["selected_ids"] == selected_ids
+    assert "consolidate_review" in redirect["agent_ingress"]["rendered"]
+
+    consolidate_result = run(server.call_tool("consolidate_review", {
+        "selected_ids": selected_ids,
+        "summary": "Mneme write-barrier must expose a closure tool so external agents can finish pending reviews.",
+        "valence": 0.88,
+        "member_ids": selected_ids,
+        "rationale": "The barrier pointed to consolidate_review and the agent supplied the semantic mnion.",
+    }))
+    _, consolidated = tool_result_parts(consolidate_result)
+
+    assert consolidated["ok"] is True
+    assert consolidated["action"] == "micro_consolidation_review_recorded"
+    assert consolidated["cleared_pending_review"] is True
+    assert consolidated["review_id"].startswith("review_")
+    assert consolidated["selected_ids"] == selected_ids
+    assert consolidated["grouped_ids"] == selected_ids
+    assert consolidated["route"] == "list_topics -> get_item(review_id)"
+    assert consolidated["item"]["review_id"] == consolidated["review_id"]
+    assert consolidated["item"]["mnion"]["summary"].startswith("Mneme write-barrier")
+    assert not pending.exists()
+
+    receipt = json.loads(receipts.read_text(encoding="utf-8").strip())
+    assert receipt["id"] == consolidated["review_id"]
+    assert receipt["kind"] == "micro_consolidation_review"
+    assert receipt["selected_ids"] == selected_ids
+    assert receipt["grouped_ids"] == selected_ids
+    assert receipt["mnion"]["valence"] == 0.88
+
+    item_result = run(server.call_tool("get_item", {"review_id": consolidated["review_id"]}))
+    _, item = tool_result_parts(item_result)
+    assert item["ok"] is True
+    assert item["item"]["review_id"] == consolidated["review_id"]
+
+    next_capture_result = run(server.call_tool("capture", {
+        "delta": "Capture after MCP consolidate_review should proceed.",
+        "valence": 0.22,
+        "hooks": ["project:mneme"],
+        "trigger": "barrier_closed_by_tool",
+    }))
+    _, next_capture = tool_result_parts(next_capture_result)
+    assert next_capture["ok"] is True
+    assert next_capture["action"] in {"created", "linked_new", "reinforced"}
+    assert next_capture["record"]["delta"] == "Capture after MCP consolidate_review should proceed."
+
+
+
+def test_mcp_consolidate_review_rejects_selected_id_mismatch_fail_closed(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    pending = tmp_path / "pending_review.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        pending_review_path=pending,
+    )
+
+    first_result = run(server.call_tool("capture", {
+        "delta": "Pending review selected ids must not be spoofable by a closure tool call.",
+        "valence": 0.94,
+        "hooks": ["project:mneme", "security:fail_closed"],
+        "trigger": "selected_id_mismatch_regression",
+    }))
+    _, first = tool_result_parts(first_result)
+    selected_ids = first["review_packet"]["selected_ids"]
+    assert pending.exists()
+
+    mismatch_result = run(server.call_tool("consolidate_review", {
+        "selected_ids": ["memory_tag_wrong"],
+        "summary": "This should not be recorded.",
+        "valence": 0.75,
+        "member_ids": ["memory_tag_wrong"],
+        "rationale": "Wrong selected ids must fail closed.",
+    }))
+    _, mismatch = tool_result_parts(mismatch_result)
+
+    assert mismatch["ok"] is False
+    assert mismatch["action"] == "selected_ids_mismatch"
+    assert mismatch["expected_selected_ids"] == selected_ids
+    assert mismatch["cleared_pending_review"] is False
+    assert pending.exists()
+    assert not receipts.exists()
+
+    redirected_result = run(server.call_tool("capture", {
+        "delta": "Capture should still be blocked after failed mismatched closure.",
+        "valence": 0.2,
+        "hooks": ["project:mneme"],
+        "trigger": "still_blocked_after_mismatch",
+    }))
+    _, redirected = tool_result_parts(redirected_result)
+    assert redirected["ok"] is False
+    assert redirected["action"] == "redirected_to_pending_review"
+    assert redirected["tool_guidance"]["selected_ids"] == selected_ids
+
+
+
+def test_mcp_consolidate_review_rejects_non_string_pending_ids_fail_closed(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    pending = tmp_path / "pending_review.json"
+    pending.write_text(json.dumps({
+        "kind": "mneme_pending_review",
+        "status": "pending",
+        "selected_ids": [123],
+        "semantic_auto_consolidation": False,
+        "review_pressure": {"needed": True, "reasons": ["high_valence"]},
+        "agent_ingress": {
+            "rendered": "MNEME_REVIEW_PRESSURE malformed numeric ids",
+            "selected_ids": [123],
+        },
+        "review_packet": {
+            "packet_limit": 6,
+            "selected_ids": [123],
+            "memory_tags": [{
+                "id": 123,
+                "delta": "Numeric ids must not be normalized into strings.",
+                "valence": 0.9,
+                "ttl_seconds": 3600,
+                "call_ttl": 5,
+                "birth_call_seq": 1,
+                "captured_at": "2026-09-30T20:00:00Z",
+                "expires_at": "2026-09-30T21:00:00Z",
+                "hooks": [],
+                "trigger": None,
+                "affect_hints": [],
+            }],
+            "prompt": "review",
+            "expected_output_schema": {},
+        },
+    }) + "\n", encoding="utf-8")
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        pending_review_path=pending,
+    )
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": ["123"],
+        "summary": "This must not repair numeric ids.",
+        "valence": 0.7,
+        "member_ids": ["123"],
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is False
+    assert structured["action"] == "blocked_by_invalid_pending_review"
+    assert "selected_ids" in structured["errors"]
+    assert "review_packet.selected_ids" in structured["errors"]
+    assert "agent_ingress.selected_ids" in structured["errors"]
+    assert structured["cleared_pending_review"] is False
+    assert pending.exists()
+    assert not receipts.exists()
+
+
+
+def test_mcp_consolidate_review_rejects_whitespace_padded_pending_ids_fail_closed(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    pending = tmp_path / "pending_review.json"
+    pending.write_text(json.dumps({
+        "kind": "mneme_pending_review",
+        "status": "pending",
+        "selected_ids": [" memory_tag_bad "],
+        "semantic_auto_consolidation": False,
+        "review_pressure": {"needed": True, "reasons": ["high_valence"]},
+        "agent_ingress": {
+            "rendered": "MNEME_REVIEW_PRESSURE whitespace padded ids",
+            "selected_ids": [" memory_tag_bad "],
+        },
+        "review_packet": {
+            "packet_limit": 6,
+            "selected_ids": [" memory_tag_bad "],
+            "memory_tags": [{
+                "id": " memory_tag_bad ",
+                "delta": "Whitespace-padded ids must not be repaired.",
+                "valence": 0.9,
+                "ttl_seconds": 3600,
+                "call_ttl": 5,
+                "birth_call_seq": 1,
+                "captured_at": "2026-09-30T20:00:00Z",
+                "expires_at": "2026-09-30T21:00:00Z",
+                "hooks": [],
+                "trigger": None,
+                "affect_hints": [],
+            }],
+            "prompt": "review",
+            "expected_output_schema": {},
+        },
+    }) + "\n", encoding="utf-8")
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        pending_review_path=pending,
+    )
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": ["memory_tag_bad"],
+        "summary": "This must not repair padded ids.",
+        "valence": 0.7,
+        "member_ids": ["memory_tag_bad"],
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is False
+    assert structured["action"] == "blocked_by_invalid_pending_review"
+    assert "selected_ids" in structured["errors"]
+    assert "review_packet.selected_ids" in structured["errors"]
+    assert "agent_ingress.selected_ids" in structured["errors"]
+    assert structured["cleared_pending_review"] is False
+    assert pending.exists()
+    assert not receipts.exists()
+
+
+
+def test_mcp_consolidate_review_returns_structured_error_for_malformed_memory_tag_packet(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    pending = tmp_path / "pending_review.json"
+    pending.write_text(json.dumps({
+        "kind": "mneme_pending_review",
+        "status": "pending",
+        "selected_ids": ["memory_tag_bad"],
+        "semantic_auto_consolidation": False,
+        "review_pressure": {"needed": True, "reasons": ["high_valence"]},
+        "agent_ingress": {
+            "rendered": "MNEME_REVIEW_PRESSURE malformed packet",
+            "selected_ids": ["memory_tag_bad"],
+        },
+        "review_packet": {
+            "packet_limit": 6,
+            "selected_ids": ["memory_tag_bad"],
+            "memory_tags": [{
+                "id": "memory_tag_bad",
+                "delta": "Missing fields should produce structured fail-closed response.",
+                "valence": 0.9,
+            }],
+            "prompt": "review",
+            "expected_output_schema": {},
+        },
+    }) + "\n", encoding="utf-8")
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        pending_review_path=pending,
+    )
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": ["memory_tag_bad"],
+        "summary": "This malformed packet must not raise through MCP.",
+        "valence": 0.7,
+        "member_ids": ["memory_tag_bad"],
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is False
+    assert structured["action"] == "blocked_by_invalid_pending_review"
+    assert "ttl_seconds" in structured["reason"]
+    assert structured["cleared_pending_review"] is False
+    assert pending.exists()
+    assert not receipts.exists()
+
+
+
+def test_mcp_consolidate_review_returns_structured_error_for_malformed_packet_metadata(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    pending = tmp_path / "pending_review.json"
+    pending.write_text(json.dumps({
+        "kind": "mneme_pending_review",
+        "status": "pending",
+        "selected_ids": ["memory_tag_bad_meta"],
+        "semantic_auto_consolidation": False,
+        "review_pressure": {"needed": True, "reasons": ["high_valence"]},
+        "agent_ingress": {
+            "rendered": "MNEME_REVIEW_PRESSURE malformed packet metadata",
+            "selected_ids": ["memory_tag_bad_meta"],
+        },
+        "review_packet": {
+            "packet_limit": [6],
+            "selected_ids": ["memory_tag_bad_meta"],
+            "memory_tags": [{
+                "id": "memory_tag_bad_meta",
+                "delta": "Malformed packet metadata should not escape MCP structured response.",
+                "valence": 0.9,
+                "ttl_seconds": 3600,
+                "call_ttl": 5,
+                "birth_call_seq": 1,
+                "captured_at": "2026-09-30T20:00:00Z",
+                "expires_at": "2026-09-30T21:00:00Z",
+                "hooks": [],
+                "trigger": None,
+                "affect_hints": [],
+            }],
+            "prompt": "review",
+            "expected_output_schema": 7,
+            "active_unread_count": [1],
+        },
+    }) + "\n", encoding="utf-8")
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        pending_review_path=pending,
+    )
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": ["memory_tag_bad_meta"],
+        "summary": "Malformed metadata must not raise through MCP.",
+        "valence": 0.7,
+        "member_ids": ["memory_tag_bad_meta"],
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is False
+    assert structured["action"] == "blocked_by_invalid_pending_review"
+    assert "expected_output_schema" in structured["reason"] or "packet_limit" in structured["reason"]
+    assert structured["cleared_pending_review"] is False
+    assert pending.exists()
+    assert not receipts.exists()
+
+
+
+def test_mcp_consolidate_review_keeps_latch_when_read_model_materialization_fails(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    read_model_dir = tmp_path / "read_model_directory"
+    read_model_dir.mkdir()
+    pending = tmp_path / "pending_review.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=read_model_dir,
+        pending_review_path=pending,
+    )
+
+    first_result = run(server.call_tool("capture", {
+        "delta": "Read-model failure after receipt write must not silently clear the latch.",
+        "valence": 0.91,
+        "hooks": ["project:mneme", "failure:read_model"],
+        "trigger": "materialization_failure_regression",
+    }))
+    _, first = tool_result_parts(first_result)
+    selected_ids = first["review_packet"]["selected_ids"]
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": selected_ids,
+        "summary": "Receipt write should be reported separately from read-model failure.",
+        "valence": 0.8,
+        "member_ids": selected_ids,
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is False
+    assert structured["action"] == "review_recorded_read_model_failed"
+    assert structured["review_id"].startswith("review_")
+    assert structured["cleared_pending_review"] is False
+    assert pending.exists()
+    assert receipts.exists()
+
+    blocked_result = run(server.call_tool("capture", {
+        "delta": "Capture must remain blocked until the receipt-backed item is readable.",
+        "valence": 0.2,
+        "hooks": ["project:mneme"],
+        "trigger": "after_read_model_failure",
+    }))
+    _, blocked = tool_result_parts(blocked_result)
+    assert blocked["ok"] is False
+    assert blocked["action"] == "redirected_to_pending_review"
+    assert blocked["next_tool"] == "consolidate_review"
+    assert pending.exists()
 
 
 
