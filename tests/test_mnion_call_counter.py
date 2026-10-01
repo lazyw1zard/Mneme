@@ -4,6 +4,7 @@ from mnion.core import (
     DEFAULT_ACTIVE_MEMORY_TAG_LIMIT,
     DEFAULT_CALL_TTL,
     MemoryTagCaptureRequest,
+    capture_memory_tag,
     capture_memory_tag_record,
     current_mneme_call_seq,
     load_memory_tags,
@@ -119,3 +120,37 @@ def test_load_memory_tags_hides_records_expired_by_mneme_call_age(tmp_path):
         second.id,
         third.id,
     ]
+
+
+def test_load_memory_tags_keeps_high_valence_tags_after_call_ttl(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+
+    pinned = capture_memory_tag(
+        MemoryTagCaptureRequest(delta="high valence pinned trace should wait for batch review", valence=0.91, call_ttl=2),
+        ledger_path=ledger,
+        state_path=state,
+    )
+    assert pinned.record is not None
+    low = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="low valence neighbor expires normally", valence=0.2, call_ttl=2),
+        ledger_path=ledger,
+        state_path=state,
+    )
+    third = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="third call ages both prior records", valence=0.2),
+        ledger_path=ledger,
+        state_path=state,
+    )
+
+    assert mneme_call_age(birth_call_seq=pinned.record.birth_call_seq, state_path=state) == 2
+    assert mneme_call_age(birth_call_seq=low.birth_call_seq, state_path=state) == 1
+    assert [m.id for m in load_memory_tags(ledger_path=ledger, state_path=state)] == [pinned.target_id, low.id, third.id]
+
+    fourth = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="fourth call expires the low valence neighbor", valence=0.2),
+        ledger_path=ledger,
+        state_path=state,
+    )
+
+    assert [m.id for m in load_memory_tags(ledger_path=ledger, state_path=state)] == [pinned.target_id, third.id, fourth.id]

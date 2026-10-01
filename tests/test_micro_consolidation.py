@@ -55,6 +55,32 @@ def test_prepare_micro_consolidation_request_returns_oldest_unread_active_mnions
     assert "valence" in request.expected_output_schema
 
 
+def test_prepare_micro_consolidation_request_prioritizes_high_valence_pinned_tags(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    low_first = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="older low priority trace", valence=0.2, hooks=["topic:old"]),
+        ledger_path=ledger,
+        state_path=state,
+    )
+    pinned = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="younger high valence trace should be reviewed first", valence=0.91, hooks=["topic:pinned"]),
+        ledger_path=ledger,
+        state_path=state,
+    )
+    low_second = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="younger low priority trace", valence=0.2, hooks=["topic:new"]),
+        ledger_path=ledger,
+        state_path=state,
+    )
+
+    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, packet_limit=2)
+
+    assert request.selection.selected_ids == [pinned.id, low_first.id]
+    assert [tag.id for tag in request.memory_tags] == [pinned.id, low_first.id]
+    assert low_second.id not in request.selection.selected_ids
+
+
 def test_selection_metadata_can_describe_unread_active_coverage():
     selection = MicroConsolidationSelection(
         strategy="unread_active_coverage",

@@ -283,6 +283,11 @@ def _similarity_score(candidate: MemoryTagCaptureRequest, record: MemoryTagRecor
         reasons.append("trigger_token_overlap")
     if affect_score:
         reasons.append("affect_token_overlap")
+    # A shared broad hook (for example a batch/review probe hook) is enough to
+    # link related traces, but not enough to collapse distinct events into one
+    # reinforced tag. Reinforcement should require another semantic surface.
+    if hook_score and not (delta_score or trigger_score or affect_score):
+        score = min(score, REINFORCE_THRESHOLD - 0.01)
     return round(score, 4), "+".join(reasons) or "no_overlap"
 
 
@@ -498,6 +503,7 @@ def load_memory_tags(
     seq_path = _resolve_state_path(path, state_path)
     current = now or _utc_now()
     raw_rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    effective = _effective_valence_by_id(path)
     refreshed_seq_by_id: dict[str, int] = {}
     for data in raw_rows:
         if data.get("event") == "reinforcement" and data.get("target_id"):
@@ -513,9 +519,15 @@ def load_memory_tags(
         record = _record_from_data(data)
         wall_expired = _parse_ts(record.expires_at) <= current
         active_since_seq = max(record.birth_call_seq, refreshed_seq_by_id.get(record.id, 0))
+        effective_valence = max(float(record.valence), float(effective.get(record.id, record.valence)))
         call_expired = False
         if active_since_seq > 0:
             call_expired = mneme_call_age(birth_call_seq=active_since_seq, state_path=seq_path) >= record.call_ttl
+        if effective_valence >= CONSOLIDATION_THRESHOLD:
+            # High-valence tags are pinned review material: they should wait for
+            # batch micro-consolidation instead of disappearing just because the
+            # singleton hard-barrier path no longer fires immediately.
+            call_expired = False
         if not include_expired and (wall_expired or call_expired):
             continue
         records.append(record)

@@ -6,6 +6,9 @@ from typing import Any
 from .config import MnemeConfig
 
 
+MIN_REVIEW_BATCH_SIZE = 2
+
+
 @dataclass(frozen=True)
 class ReviewPressureDecision:
     needed: bool
@@ -91,7 +94,7 @@ def evaluate_review_pressure(
     action = str(getattr(capture_result, "action", ""))
     valence_after = float(getattr(capture_result, "valence_after", 0.0))
     if config.review_pressure.trigger_on_high_valence and valence_after >= config.memory_tag.high_valence_threshold:
-        reasons.append("high_valence")
+        reasons.append("high_valence_pinned")
         if action == "reinforced":
             reasons.append("confirmed_valence")
 
@@ -99,13 +102,18 @@ def evaluate_review_pressure(
     if config.review_pressure.trigger_on_interval and seq > 0 and seq % interval == 0:
         reasons.append("call_seq_interval")
 
+    has_hard_trigger = bool(reasons)
+    if has_hard_trigger and active_count < MIN_REVIEW_BATCH_SIZE:
+        reasons.append("insufficient_review_batch")
+        has_hard_trigger = False
+
     return ReviewPressureDecision(
-        needed=bool(reasons),
+        needed=has_hard_trigger,
         reasons=reasons,
         mneme_call_seq=seq,
         active_unread_count=active_count,
         packet_limit=packet_limit,
-        suggested_action="prepare_micro_consolidation_request" if reasons else None,
+        suggested_action="prepare_micro_consolidation_request" if has_hard_trigger else None,
         semantic_auto_consolidation=False,
     )
 

@@ -1,4 +1,4 @@
-from mnion.config import MnemeConfig, load_mneme_config
+from mnion.config import MnemeConfig, ReviewPressureConfig, load_mneme_config
 from mnion.core import MemoryTagCaptureRequest, capture_memory_tag
 from mnion.micro_consolidation import prepare_micro_consolidation_request
 from mnion.review_pressure import build_review_pressure_ingress, evaluate_review_pressure
@@ -39,7 +39,7 @@ state_dir = "~/custom-mneme-state"
     assert config.storage.state_dir.as_posix().endswith("custom-mneme-state")
 
 
-def test_review_pressure_flags_high_confirmed_valence_without_semantic_auto_consolidation(tmp_path):
+def test_review_pressure_pins_high_valence_singleton_without_hard_barrier(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
     config = MnemeConfig()
@@ -76,12 +76,27 @@ def test_review_pressure_flags_high_confirmed_valence_without_semantic_auto_cons
         config=config,
     )
 
-    assert decision.needed is True
-    assert "high_valence" in decision.reasons
-    assert "confirmed_valence" in decision.reasons
-    assert decision.suggested_action == "prepare_micro_consolidation_request"
+    assert decision.needed is False
+    assert decision.reasons == ["high_valence_pinned", "confirmed_valence", "insufficient_review_batch"]
+    assert decision.suggested_action is None
     assert decision.semantic_auto_consolidation is False
     assert decision.packet_limit == config.review_pressure.packet_limit
+
+
+def test_review_pressure_uses_high_valence_as_batch_priority_when_material_exists(tmp_path):
+    config = MnemeConfig()
+    result = type("Capture", (), {"mneme_call_seq": 3, "valence_after": 0.9, "action": "created"})()
+
+    decision = evaluate_review_pressure(
+        capture_result=result,
+        active_unread_count=2,
+        config=config,
+    )
+
+    assert decision.needed is True
+    assert decision.reasons == ["high_valence_pinned"]
+    assert decision.suggested_action == "prepare_micro_consolidation_request"
+    assert decision.semantic_auto_consolidation is False
 
 
 def test_review_pressure_checks_call_seq_interval_on_each_mneme_call(tmp_path):
@@ -137,13 +152,23 @@ def test_review_pressure_interval_does_not_trigger_without_unread_active_materia
 def test_review_pressure_ingress_hands_bounded_packet_to_agent_input(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
-    config = MnemeConfig()
+    config = MnemeConfig(review_pressure=ReviewPressureConfig(call_seq_interval=2))
+    pinned = capture_memory_tag(
+        MemoryTagCaptureRequest(
+            delta="Mneme should pin high-valence traces until a review packet is ready",
+            valence=0.91,
+            hooks=["project:mneme", "concept:pinned_ingress"],
+            trigger="operator_correction",
+        ),
+        ledger_path=ledger,
+        state_path=state,
+    )
     result = capture_memory_tag(
         MemoryTagCaptureRequest(
-            delta="Mneme should hand review packets to the live agent input when pressure triggers",
-            valence=0.91,
-            hooks=["project:mneme", "concept:agent_ingress"],
-            trigger="operator_correction",
+            delta="Mneme should hand accumulated review packets to the live agent input when pressure triggers",
+            valence=0.2,
+            hooks=["project:mneme", "concept:agent_ingress_neighbor"],
+            trigger="operator_correction_neighbor",
         ),
         ledger_path=ledger,
         state_path=state,
@@ -166,10 +191,11 @@ def test_review_pressure_ingress_hands_bounded_packet_to_agent_input(tmp_path):
     assert ingress.suggested_action == "agentic_micro_consolidation_review"
     assert ingress.semantic_auto_consolidation is False
     assert ingress.packet_limit == config.review_pressure.packet_limit
-    assert ingress.selected_ids == [result.target_id]
+    assert ingress.selected_ids[:2] == [pinned.target_id, result.target_id]
     assert ingress.prompt.startswith("Find semantically close memory tags")
     assert ingress.expected_output_schema["summary"]
-    assert ingress.memory_tags[0]["id"] == result.target_id
+    assert [tag["id"] for tag in ingress.memory_tags[:2]] == [pinned.target_id, result.target_id]
     assert "MNEME_REVIEW_PRESSURE" in ingress.rendered
+    assert pinned.target_id in ingress.rendered
     assert result.target_id in ingress.rendered
     assert "Do not auto-promote" in ingress.rendered

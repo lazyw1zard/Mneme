@@ -18,6 +18,49 @@ def tool_result_parts(result):
     return result
 
 
+def _interval_config(tmp_path, *, call_seq_interval=2, packet_limit=2):
+    config = tmp_path / "mneme_config.toml"
+    config.write_text(
+        f"""
+[review_pressure]
+enabled = true
+call_seq_interval = {call_seq_interval}
+trigger_on_high_valence = true
+trigger_on_interval = true
+packet_limit = {packet_limit}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    return config
+
+
+def _create_interval_pending_review(server):
+    high_result = run(server.call_tool("capture", {
+        "delta": "High-valence pinned trace should wait for batch review instead of becoming a singleton mnion.",
+        "valence": 0.93,
+        "hooks": ["project:mneme", "batch:first"],
+        "trigger": "pinned_before_batch",
+    }))
+    _, high = tool_result_parts(high_result)
+    assert high["ok"] is True
+    assert high["review_pressure"]["needed"] is False
+
+    interval_result = run(server.call_tool("capture", {
+        "delta": "Interval pressure should turn accumulated distinct tags into one review packet.",
+        "valence": 0.22,
+        "hooks": ["project:mneme", "batch:second"],
+        "trigger": "interval_batch_ready",
+    }))
+    _, interval = tool_result_parts(interval_result)
+    assert interval["ok"] is True
+    assert interval["review_pressure"]["needed"] is True
+    assert interval["review_pressure"]["reasons"] == ["call_seq_interval"]
+    assert len(interval["review_packet"]["selected_ids"]) == 2
+    assert interval["review_packet"]["selected_ids"][0] == high["target_id"]
+    return interval
+
+
 def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path):
     server = create_server(ledger_path=tmp_path / "memory_tags.jsonl")
 
@@ -87,23 +130,17 @@ def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     assert structured["record"]["hooks"] == ["telegram:current_turn"]
     assert structured["record"]["affect_hints"] == ["curiosity", "contour_shift"]
     assert structured["valence_crosses_threshold"] is True
-    assert structured["review_pressure"]["needed"] is True
-    assert structured["review_pressure"]["reasons"] == ["high_valence"]
-    assert structured["review_pressure"]["suggested_action"] == "prepare_micro_consolidation_request"
+    assert structured["review_pressure"]["needed"] is False
+    assert structured["review_pressure"]["reasons"] == ["high_valence_pinned", "insufficient_review_batch"]
+    assert structured["review_pressure"]["suggested_action"] is None
     assert structured["review_pressure"]["semantic_auto_consolidation"] is False
     assert structured["review_packet"]["packet_limit"] == 6
     assert structured["review_packet"]["active_unread_count"] == 1
     assert structured["review_packet"]["selected_ids"] == [structured["record"]["id"]]
-    assert structured["review_packet"]["prompt"].startswith("Find semantically close memory tags")
-    assert structured["review_packet"]["expected_output_schema"]["summary"]
-    assert [tag["id"] for tag in structured["review_packet"]["memory_tags"]] == [structured["record"]["id"]]
-    assert structured["agent_ingress"]["kind"] == "mneme_review_pressure_ingress"
-    assert structured["agent_ingress"]["selected_ids"] == [structured["record"]["id"]]
-    assert structured["agent_ingress"]["suggested_action"] == "agentic_micro_consolidation_review"
-    assert structured["agent_ingress"]["semantic_auto_consolidation"] is False
-    assert "MNEME_REVIEW_PRESSURE" in structured["agent_ingress"]["rendered"]
-    assert structured["record"]["id"] in structured["agent_ingress"]["rendered"]
-    assert "Do not auto-promote" in structured["agent_ingress"]["rendered"]
+    assert structured["review_packet"]["prompt"] is None
+    assert structured["review_packet"]["expected_output_schema"] == {}
+    assert structured["review_packet"]["memory_tags"] == []
+    assert structured["agent_ingress"] is None
     assert content_blocks[0].type == "text"
     assert ledger.exists()
     raw = json.loads(ledger.read_text(encoding="utf-8").strip())
@@ -125,52 +162,44 @@ def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_pa
         receipts_path=receipts,
         read_model_path=read_model,
         pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
     )
 
-    first_result = run(server.call_tool("capture", {
-        "delta": "High-valence pending review should latch before more captures accumulate.",
-        "valence": 0.91,
-        "hooks": ["project:mneme", "concept:write_barrier"],
-        "trigger": "grow_review",
-    }))
-    _, first = tool_result_parts(first_result)
-
-    assert first["ok"] is True
-    first_id = first["record"]["id"]
-    assert first["review_pressure"]["needed"] is True
+    interval = _create_interval_pending_review(server)
+    selected_ids = interval["review_packet"]["selected_ids"]
     assert pending.exists()
     pending_payload = json.loads(pending.read_text(encoding="utf-8"))
     assert pending_payload["kind"] == "mneme_pending_review"
     assert pending_payload["status"] == "pending"
-    assert pending_payload["selected_ids"] == [first_id]
-    assert pending_payload["reasons"] == ["high_valence"]
-    assert pending_payload["packet_limit"] == 6
+    assert pending_payload["selected_ids"] == selected_ids
+    assert pending_payload["reasons"] == ["call_seq_interval"]
+    assert pending_payload["packet_limit"] == 2
     assert pending_payload["semantic_auto_consolidation"] is False
     assert "MNEME_REVIEW_PRESSURE" in pending_payload["agent_ingress"]["rendered"]
 
     ledger_before = ledger.read_text(encoding="utf-8")
     state_before = json.loads(state.read_text(encoding="utf-8"))["seq"]
 
-    second_result = run(server.call_tool("capture", {
+    redirected_result = run(server.call_tool("capture", {
         "delta": "Ordinary low-valence capture should be redirected while review is pending.",
         "valence": 0.2,
         "hooks": ["project:mneme"],
         "trigger": "barrier_test",
     }))
-    _, second = tool_result_parts(second_result)
+    _, redirected = tool_result_parts(redirected_result)
 
-    assert second["ok"] is False
-    assert second["action"] == "redirected_to_pending_review"
-    assert second["target_id"] is None
-    assert second["memory_tag"] is None
-    assert second["record"] is None
-    assert second["review_pressure"]["needed"] is True
-    assert second["agent_ingress"]["kind"] == "mneme_review_pressure_ingress"
-    assert "MNEME_REVIEW_PRESSURE" in second["agent_ingress"]["rendered"]
-    assert second["review_packet"]["selected_ids"] == [first_id]
-    assert second["proposed_capture"]["delta"] == "Ordinary low-valence capture should be redirected while review is pending."
-    assert "receipt_json" not in json.dumps(second)
-    assert "sql" not in json.dumps(second).lower()
+    assert redirected["ok"] is False
+    assert redirected["action"] == "redirected_to_pending_review"
+    assert redirected["target_id"] is None
+    assert redirected["memory_tag"] is None
+    assert redirected["record"] is None
+    assert redirected["review_pressure"]["needed"] is True
+    assert redirected["agent_ingress"]["kind"] == "mneme_review_pressure_ingress"
+    assert "MNEME_REVIEW_PRESSURE" in redirected["agent_ingress"]["rendered"]
+    assert redirected["review_packet"]["selected_ids"] == selected_ids
+    assert redirected["proposed_capture"]["delta"] == "Ordinary low-valence capture should be redirected while review is pending."
+    assert "receipt_json" not in json.dumps(redirected)
+    assert "sql" not in json.dumps(redirected).lower()
     assert ledger.read_text(encoding="utf-8") == ledger_before
     assert json.loads(state.read_text(encoding="utf-8"))["seq"] == state_before
 
@@ -179,8 +208,8 @@ def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_pa
         "kind": "micro_consolidation_review",
         "status": "reviewed",
         "created_at": "2026-09-28T18:40:00Z",
-        "selected_ids": [first_id],
-        "grouped_ids": [first_id],
+        "selected_ids": selected_ids,
+        "grouped_ids": selected_ids,
         "ungrouped_ids": [],
         "deferred_ids": [],
         "mnion": {"summary": "Pending review barrier works.", "valence": 0.8, "rationale": "Test receipt."},
@@ -196,8 +225,7 @@ def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_pa
     _, third = tool_result_parts(third_result)
 
     assert third["ok"] is True
-    assert third["action"] == "created"
-    assert third["record"]["delta"] == "Capture after covered pending review should proceed."
+    assert third["action"] in {"created", "linked_new", "reinforced"}
     assert not pending.exists()
 
 
@@ -214,18 +242,12 @@ def test_mcp_consolidate_review_records_receipt_clears_barrier_and_materializes_
         receipts_path=receipts,
         read_model_path=db,
         pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
     )
 
-    first_result = run(server.call_tool("capture", {
-        "delta": "Claude-facing Mneme needs an MCP tool to close pending reviews.",
-        "valence": 0.93,
-        "hooks": ["project:mneme", "surface:mcp"],
-        "trigger": "claude_blocked_by_write_barrier",
-    }))
-    _, first = tool_result_parts(first_result)
+    first = _create_interval_pending_review(server)
     selected_ids = first["review_packet"]["selected_ids"]
 
-    assert first["review_pressure"]["needed"] is True
     assert first["agent_ingress"]["next_tool"] == "consolidate_review"
     assert first["review_packet"]["next_tool"] == "consolidate_review"
     assert pending.exists()
@@ -300,15 +322,10 @@ def test_mcp_consolidate_review_rejects_selected_id_mismatch_fail_closed(tmp_pat
         state_path=state,
         receipts_path=receipts,
         pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
     )
 
-    first_result = run(server.call_tool("capture", {
-        "delta": "Pending review selected ids must not be spoofable by a closure tool call.",
-        "valence": 0.94,
-        "hooks": ["project:mneme", "security:fail_closed"],
-        "trigger": "selected_id_mismatch_regression",
-    }))
-    _, first = tool_result_parts(first_result)
+    first = _create_interval_pending_review(server)
     selected_ids = first["review_packet"]["selected_ids"]
     assert pending.exists()
 
@@ -587,15 +604,10 @@ def test_mcp_consolidate_review_keeps_latch_when_read_model_materialization_fail
         receipts_path=receipts,
         read_model_path=read_model_dir,
         pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
     )
 
-    first_result = run(server.call_tool("capture", {
-        "delta": "Read-model failure after receipt write must not silently clear the latch.",
-        "valence": 0.91,
-        "hooks": ["project:mneme", "failure:read_model"],
-        "trigger": "materialization_failure_regression",
-    }))
-    _, first = tool_result_parts(first_result)
+    first = _create_interval_pending_review(server)
     selected_ids = first["review_packet"]["selected_ids"]
 
     result = run(server.call_tool("consolidate_review", {

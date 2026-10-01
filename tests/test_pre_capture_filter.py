@@ -123,6 +123,38 @@ def test_capture_memory_tag_links_related_but_distinct_candidate(tmp_path):
     assert [m.id for m in load_memory_tags(ledger_path=ledger, state_path=state)] == [first.record.id, related.record.id]
 
 
+def test_capture_memory_tag_does_not_reinforce_on_shared_hook_only(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    first = capture_memory_tag(
+        MemoryTagCaptureRequest(
+            delta="rust release binary remains stale after debug build",
+            valence=0.2,
+            hooks=["batch_probe"],
+            trigger="release_binary",
+        ),
+        ledger_path=ledger,
+        state_path=state,
+    )
+
+    second = capture_memory_tag(
+        MemoryTagCaptureRequest(
+            delta="sleep support should stay warm and non shaming",
+            valence=0.2,
+            hooks=["batch_probe"],
+            trigger="sleep_support",
+        ),
+        ledger_path=ledger,
+        state_path=state,
+    )
+
+    assert first.record is not None
+    assert second.action in {"created", "linked_new"}
+    assert second.record is not None
+    assert second.target_id != first.record.id
+    assert [m.id for m in load_memory_tags(ledger_path=ledger, state_path=state)] == [first.record.id, second.record.id]
+
+
 def test_reinforcement_refreshes_call_life_for_active_load(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"

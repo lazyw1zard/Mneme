@@ -7,7 +7,7 @@ from typing import Any, Callable
 import json
 import uuid
 
-from mnion.core import MemoryTagRecord, current_mneme_call_seq, load_memory_tags
+from mnion.core import CONSOLIDATION_THRESHOLD, MemoryTagRecord, current_mneme_call_seq, load_memory_tags
 
 
 @dataclass(frozen=True)
@@ -185,7 +185,15 @@ def select_unread_active_memory_tags(
         for tag in active_memory_tags
         if (state := review_state.get(tag.id)) is not None and state.status == "deferred" and not state.needs_rereview
     )
-    selected = eligible[:packet_limit]
+    # High-valence tags are pinned review material: do not immediately turn a
+    # singleton into a singleton mnion, but once a batch exists, include the
+    # pinned traces at the front so they do not starve behind older low-pressure
+    # material. Within each pressure band, keep oldest-first fairness.
+    ordered = sorted(
+        eligible,
+        key=lambda tag: (0 if float(tag.valence) >= CONSOLIDATION_THRESHOLD else 1, int(tag.birth_call_seq)),
+    )
+    selected = ordered[:packet_limit]
     return MicroConsolidationSelectionPacket(
         memory_tags=selected,
         selection=MicroConsolidationSelection(
