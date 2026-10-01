@@ -30,7 +30,12 @@ from .micro_consolidation import (
     prepare_micro_consolidation_request,
 )
 from .read_model import active_mnion_ingress_for_context, get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
-from .review_pressure import build_review_pressure_ingress, consolidate_review_tool_guidance, evaluate_review_pressure
+from .review_pressure import (
+    build_review_pressure_ingress,
+    consolidate_review_tool_guidance,
+    evaluate_review_pressure,
+    latest_review_mneme_call_seq,
+)
 from .review_pressure_state import (
     clear_pending_review,
     load_pending_review,
@@ -510,6 +515,7 @@ def create_server(
             capture_result=result,
             active_unread_count=review_request.selection.unread_active_count,
             config=config,
+            last_review_seq=latest_review_mneme_call_seq(review_receipts),
         )
         ingress = build_review_pressure_ingress(decision=pressure, review_request=review_request)
         if pressure.needed and ingress is not None:

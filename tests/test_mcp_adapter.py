@@ -104,7 +104,7 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
 def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
-    server = create_server(ledger_path=ledger, state_path=state)
+    server = create_server(ledger_path=ledger, state_path=state, config_path=_interval_config(tmp_path, call_seq_interval=10, packet_limit=6))
 
     result = run(server.call_tool("capture", {
         "delta": "Synaptic tagging gives Mneme a cheap capture-first model.",

@@ -37,6 +37,17 @@ class ReviewPressureIngress:
     semantic_auto_consolidation: bool = False
 
 
+def latest_review_mneme_call_seq(review_receipts: list[dict[str, Any]]) -> int | None:
+    """Return the latest valid mneme_call_seq recorded by review receipts."""
+    latest: int | None = None
+    for receipt in review_receipts:
+        value = receipt.get("mneme_call_seq")
+        if isinstance(value, bool) or not isinstance(value, int):
+            continue
+        latest = value if latest is None else max(latest, value)
+    return latest
+
+
 def consolidate_review_tool_guidance(selected_ids: list[str]) -> dict[str, Any]:
     """Return compact agent-facing guidance for closing pending Mneme review."""
     return {
@@ -59,6 +70,7 @@ def evaluate_review_pressure(
     capture_result: Any,
     active_unread_count: int,
     config: MnemeConfig,
+    last_review_seq: int | None = None,
 ) -> ReviewPressureDecision:
     """Decide whether a Mneme call should invoke agentic review.
 
@@ -99,7 +111,12 @@ def evaluate_review_pressure(
             reasons.append("confirmed_valence")
 
     interval = config.review_pressure.call_seq_interval
-    if config.review_pressure.trigger_on_interval and seq > 0 and seq % interval == 0:
+    interval_due = False
+    if last_review_seq is not None:
+        interval_due = seq - last_review_seq >= interval
+    else:
+        interval_due = seq > 0 and seq % interval == 0
+    if config.review_pressure.trigger_on_interval and interval_due:
         reasons.append("call_seq_interval")
 
     has_hard_trigger = bool(reasons)

@@ -132,6 +132,34 @@ def test_review_pressure_checks_call_seq_interval_on_each_mneme_call(tmp_path):
     assert decision.semantic_auto_consolidation is False
 
 
+def test_review_pressure_interval_is_relative_to_last_review_seq_after_config_change(tmp_path):
+    config = MnemeConfig(review_pressure=ReviewPressureConfig(call_seq_interval=8))
+    before_due = type("Capture", (), {"mneme_call_seq": 96, "valence_after": 0.2, "action": "created"})()
+
+    decision = evaluate_review_pressure(
+        capture_result=before_due,
+        active_unread_count=6,
+        config=config,
+        last_review_seq=90,
+    )
+
+    assert decision.needed is False
+    assert decision.reasons == []
+    assert decision.suggested_action is None
+
+    due = type("Capture", (), {"mneme_call_seq": 98, "valence_after": 0.2, "action": "created"})()
+    due_decision = evaluate_review_pressure(
+        capture_result=due,
+        active_unread_count=6,
+        config=config,
+        last_review_seq=90,
+    )
+
+    assert due_decision.needed is True
+    assert due_decision.reasons == ["call_seq_interval"]
+    assert due_decision.suggested_action == "prepare_micro_consolidation_request"
+
+
 def test_review_pressure_interval_does_not_trigger_without_unread_active_material(tmp_path):
     config = MnemeConfig()
     # Minimal fake shape is enough: the detector is script-level and should not
