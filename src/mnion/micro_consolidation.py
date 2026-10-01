@@ -132,7 +132,9 @@ def derive_review_state(review_receipts: list[dict[str, Any]]) -> dict[str, Revi
         review_seq = int(review_seq_raw) if review_seq_raw is not None else None
         for field, status, outcome in (
             ("grouped_ids", "reviewed", "grouped"),
-            ("ungrouped_ids", "reviewed", "ungrouped"),
+            # Ungrouped ids are audit/provenance only: the agent did not include
+            # them in the created mnion, so they must remain eligible for a
+            # later review instead of being silently consumed by this receipt.
             ("reviewed_ids", "reviewed", "reviewed"),
             ("deferred_ids", "deferred", "deferred"),
         ):

@@ -2,6 +2,7 @@ import asyncio
 import json
 
 from mnion.mcp_server import create_server
+from mnion.micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
 
 
 def run(coro):
@@ -309,6 +310,55 @@ def test_mcp_consolidate_review_records_receipt_clears_barrier_and_materializes_
     assert next_capture["ok"] is True
     assert next_capture["action"] in {"created", "linked_new", "reinforced"}
     assert next_capture["record"]["delta"] == "Capture after MCP consolidate_review should proceed."
+
+
+def test_mcp_consolidate_review_with_subset_members_clears_latch_but_keeps_ungrouped_unread(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    pending = tmp_path / "pending_review.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=db,
+        pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
+    )
+
+    first = _create_interval_pending_review(server)
+    selected_ids = first["review_packet"]["selected_ids"]
+    grouped_ids = selected_ids[:1]
+    ungrouped_ids = selected_ids[1:]
+    assert pending.exists()
+
+    consolidate_result = run(server.call_tool("consolidate_review", {
+        "selected_ids": selected_ids,
+        "summary": "Only the first selected memory tag belongs in this mnion.",
+        "valence": 0.72,
+        "member_ids": grouped_ids,
+        "rationale": "The remaining selected tag was reviewed but did not belong in this semantic object.",
+    }))
+    _, consolidated = tool_result_parts(consolidate_result)
+
+    assert consolidated["ok"] is True
+    assert consolidated["cleared_pending_review"] is True
+    assert consolidated["grouped_ids"] == grouped_ids
+    assert consolidated["ungrouped_ids"] == ungrouped_ids
+    assert not pending.exists()
+
+    stored = load_micro_consolidation_review_receipts(receipts)
+    next_request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=10,
+        review_receipts=stored,
+    )
+
+    assert next_request.selection.selected_ids == ungrouped_ids
+    assert next_request.selection.reviewed_active_count == len(grouped_ids)
+    assert next_request.selection.unread_active_count == len(ungrouped_ids)
 
 
 

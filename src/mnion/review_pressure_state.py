@@ -8,7 +8,6 @@ import json
 import os
 import tempfile
 
-from .micro_consolidation import derive_review_state
 from .review_pressure import ReviewPressureDecision, ReviewPressureIngress
 
 
@@ -153,13 +152,25 @@ def write_pending_review(
 
 
 def pending_review_is_resolved(pending: dict[str, Any], review_receipts: list[dict[str, Any]]) -> bool:
-    """Return true when receipts cover every selected id in the pending latch."""
+    """Return true when receipts cover every selected id in the pending latch.
+
+    This is latch-closure coverage, not review-queue state. `ungrouped_ids`
+    close the pending packet because the agent reviewed the packet, but they do
+    not make those ids reviewed for future unread selection.
+    """
     if pending_review_schema_errors(pending):
         return False
-    selected_ids = [str(item) for item in pending.get("selected_ids", [])]
-    review_state = derive_review_state(review_receipts)
-    for memory_tag_id in selected_ids:
-        state = review_state.get(memory_tag_id)
-        if state is None or state.status not in {"reviewed", "deferred"} or state.needs_rereview:
-            return False
-    return True
+    selected_ids = _selected_id_list(pending.get("selected_ids"))
+    if selected_ids is None:
+        return False
+
+    covered: set[str] = set()
+    for receipt in review_receipts:
+        if not isinstance(receipt, dict):
+            continue
+        for field in ("grouped_ids", "ungrouped_ids", "reviewed_ids", "deferred_ids"):
+            raw_ids = receipt.get(field, [])
+            if isinstance(raw_ids, list):
+                covered.update(item for item in raw_ids if isinstance(item, str))
+
+    return all(memory_tag_id in covered for memory_tag_id in selected_ids)

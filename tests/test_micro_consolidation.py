@@ -101,7 +101,7 @@ def test_selection_metadata_can_describe_unread_active_coverage():
     assert selection.backend == "derived_jsonl"
 
 
-def test_derive_review_state_marks_reviewed_and_deferred_mnions():
+def test_derive_review_state_keeps_ungrouped_ids_unread_and_marks_deferred_mnions():
     review_state = derive_review_state(
         [
             {
@@ -120,8 +120,7 @@ def test_derive_review_state_marks_reviewed_and_deferred_mnions():
         last_review_seq=12,
         outcome="grouped",
     )
-    assert review_state["mnion_ungrouped"].status == "reviewed"
-    assert review_state["mnion_ungrouped"].outcome == "ungrouped"
+    assert "mnion_ungrouped" not in review_state
     assert review_state["mnion_deferred"].status == "deferred"
     assert review_state["mnion_deferred"].outcome == "deferred"
 
@@ -246,7 +245,7 @@ def test_run_micro_consolidation_returns_error_for_invalid_agent_shape(tmp_path)
     assert result.error.reason == "invalid_agent_response"
 
 
-def test_apply_micro_consolidation_review_appends_receipt_and_next_selection_skips_reviewed(tmp_path):
+def test_apply_micro_consolidation_review_appends_receipt_and_next_selection_keeps_ungrouped_unread(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
@@ -285,9 +284,9 @@ def test_apply_micro_consolidation_review_appends_receipt_and_next_selection_ski
         review_receipts=stored,
     )
 
-    assert [mnion.id for mnion in next_request.memory_tags] == [records[3].id]
-    assert next_request.selection.reviewed_active_count == 3
-    assert next_request.selection.unread_active_count == 1
+    assert [mnion.id for mnion in next_request.memory_tags] == [records[1].id, records[3].id]
+    assert next_request.selection.reviewed_active_count == 2
+    assert next_request.selection.unread_active_count == 2
 
 
 def test_run_micro_consolidation_does_not_write_review_events_yet(tmp_path):
