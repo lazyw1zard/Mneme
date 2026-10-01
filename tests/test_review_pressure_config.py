@@ -83,7 +83,7 @@ def test_review_pressure_pins_high_valence_singleton_without_hard_barrier(tmp_pa
     assert decision.packet_limit == config.review_pressure.packet_limit
 
 
-def test_review_pressure_uses_high_valence_as_batch_priority_when_material_exists(tmp_path):
+def test_review_pressure_uses_high_valence_as_priority_not_hard_trigger_when_material_exists(tmp_path):
     config = MnemeConfig()
     result = type("Capture", (), {"mneme_call_seq": 3, "valence_after": 0.9, "action": "created"})()
 
@@ -93,9 +93,9 @@ def test_review_pressure_uses_high_valence_as_batch_priority_when_material_exist
         config=config,
     )
 
-    assert decision.needed is True
+    assert decision.needed is False
     assert decision.reasons == ["high_valence_pinned"]
-    assert decision.suggested_action == "prepare_micro_consolidation_request"
+    assert decision.suggested_action is None
     assert decision.semantic_auto_consolidation is False
 
 

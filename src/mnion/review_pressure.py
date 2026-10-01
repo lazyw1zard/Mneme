@@ -119,10 +119,12 @@ def evaluate_review_pressure(
     if config.review_pressure.trigger_on_interval and interval_due:
         reasons.append("call_seq_interval")
 
-    has_hard_trigger = bool(reasons)
+    has_hard_trigger = bool(config.review_pressure.trigger_on_interval and interval_due)
     if has_hard_trigger and active_count < MIN_REVIEW_BATCH_SIZE:
         reasons.append("insufficient_review_batch")
         has_hard_trigger = False
+    elif not has_hard_trigger and "high_valence_pinned" in reasons and active_count < MIN_REVIEW_BATCH_SIZE:
+        reasons.append("insufficient_review_batch")
 
     return ReviewPressureDecision(
         needed=has_hard_trigger,

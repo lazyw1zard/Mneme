@@ -20,10 +20,10 @@ class MemoryTagConfig:
 @dataclass(frozen=True)
 class ReviewPressureConfig:
     enabled: bool = True
-    call_seq_interval: int = 10
+    call_seq_interval: int = 8
     trigger_on_high_valence: bool = True
     trigger_on_interval: bool = True
-    packet_limit: int = 6
+    packet_limit: int = 8
 
 
 @dataclass(frozen=True)
