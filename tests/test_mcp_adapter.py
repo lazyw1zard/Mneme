@@ -94,7 +94,8 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
     assert description == (
         "Capture an ephemeral memory tag for a meaningful contour delta "
         "that may matter later but is not yet a consolidated mnion or durable memory. "
-        "Do not use for raw transcripts, secrets, or keyword-triggered saving."
+        "Do not use for raw transcripts, secrets, or keyword-triggered saving. "
+        "If capture returns action='redirected_to_pending_review', call consolidate_review with the pending selected_ids."
     )
     assert "Close the current pending Mneme review" in by_name["consolidate_review"].description
     assert "multiple mnions" in by_name["consolidate_review"].description

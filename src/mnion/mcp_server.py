@@ -81,7 +81,8 @@ def default_read_model_path() -> Path:
 CAPTURE_DESCRIPTION = (
     "Capture an ephemeral memory tag for a meaningful contour delta "
     "that may matter later but is not yet a consolidated mnion or durable memory. "
-    "Do not use for raw transcripts, secrets, or keyword-triggered saving."
+    "Do not use for raw transcripts, secrets, or keyword-triggered saving. "
+    "If capture returns action='redirected_to_pending_review', call consolidate_review with the pending selected_ids."
 )
 
 LIST_TOPICS_DESCRIPTION = (
