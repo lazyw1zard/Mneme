@@ -168,7 +168,7 @@ def pending_review_is_resolved(pending: dict[str, Any], review_receipts: list[di
     for receipt in review_receipts:
         if not isinstance(receipt, dict):
             continue
-        for field in ("grouped_ids", "ungrouped_ids", "reviewed_ids", "deferred_ids"):
+        for field in ("grouped_ids", "ungrouped_ids", "reviewed_ids", "reviewed_noise_ids", "deferred_ids"):
             raw_ids = receipt.get(field, [])
             if isinstance(raw_ids, list):
                 covered.update(item for item in raw_ids if isinstance(item, str))

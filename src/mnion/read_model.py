@@ -99,6 +99,28 @@ def _mnion_from_payload(payload: dict[str, Any]) -> Mnion:
     )
 
 
+def _mnion_entries_from_receipt(receipt: dict[str, Any]) -> list[tuple[str, dict[str, Any], list[Any]]]:
+    nested = receipt.get("mnions")
+    if isinstance(nested, list):
+        entries: list[tuple[str, dict[str, Any], list[Any]]] = []
+        for entry in nested:
+            if not isinstance(entry, dict):
+                continue
+            review_id = entry.get("review_id")
+            mnion_payload = entry.get("mnion")
+            grouped_ids = entry.get("grouped_ids", [])
+            if isinstance(review_id, str) and review_id and isinstance(mnion_payload, dict):
+                entries.append((review_id, mnion_payload, grouped_ids if isinstance(grouped_ids, list) else []))
+        return entries
+
+    review_id = str(receipt.get("id") or "").strip()
+    mnion_payload = receipt.get("mnion") or receipt.get("contour")
+    if not review_id or not isinstance(mnion_payload, dict):
+        return []
+    grouped_ids = receipt.get("grouped_ids") or mnion_payload.get("member_ids") or []
+    return [(review_id, mnion_payload, grouped_ids if isinstance(grouped_ids, list) else [])]
+
+
 def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | Path) -> int:
     """Rebuild the SQLite read-model from append-only review receipts.
 
@@ -111,37 +133,31 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
         conn.execute("DELETE FROM mnion_items")
         count = 0
         for receipt in receipts:
-            review_id = str(receipt.get("id") or "").strip()
-            mnion_payload = receipt.get("mnion") or receipt.get("contour")
-            if not review_id or not isinstance(mnion_payload, dict):
-                continue
-            mnion = _mnion_from_payload(mnion_payload)
-            if not mnion.summary:
-                continue
-            grouped_ids = receipt.get("grouped_ids") or mnion_payload.get("member_ids") or []
-            if not isinstance(grouped_ids, list):
-                grouped_ids = []
-            label, abstraction = _topic_for_summary(mnion.summary)
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO mnion_items (
-                    review_id, summary, valence, rationale, grouped_ids_json,
-                    created_at, receipt_json, topic_label, topic_abstraction
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    review_id,
-                    mnion.summary,
-                    mnion.valence,
-                    mnion.rationale,
-                    json.dumps([str(v) for v in grouped_ids], ensure_ascii=False),
-                    receipt.get("created_at"),
-                    json.dumps(receipt, ensure_ascii=False, sort_keys=True),
-                    label,
-                    abstraction,
-                ),
-            )
-            count += 1
+            for review_id, mnion_payload, grouped_ids in _mnion_entries_from_receipt(receipt):
+                mnion = _mnion_from_payload(mnion_payload)
+                if not mnion.summary:
+                    continue
+                label, abstraction = _topic_for_summary(mnion.summary)
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO mnion_items (
+                        review_id, summary, valence, rationale, grouped_ids_json,
+                        created_at, receipt_json, topic_label, topic_abstraction
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        review_id,
+                        mnion.summary,
+                        mnion.valence,
+                        mnion.rationale,
+                        json.dumps([str(v) for v in grouped_ids], ensure_ascii=False),
+                        receipt.get("created_at"),
+                        json.dumps(receipt, ensure_ascii=False, sort_keys=True),
+                        label,
+                        abstraction,
+                    ),
+                )
+                count += 1
         return count
 
 

@@ -52,6 +52,47 @@ def test_materialize_receipts_and_get_item_returns_ready_mnion_item(tmp_path):
     assert "do_not_infer" in item.guards
 
 
+def test_materialize_multi_mnion_receipt_exposes_each_ready_item_by_route(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    receipt = {
+        "id": "review_packet",
+        "kind": "micro_consolidation_review",
+        "status": "reviewed",
+        "created_at": "2026-10-01T23:00:00Z",
+        "selected_ids": ["memory_tag_a", "memory_tag_b"],
+        "grouped_ids": ["memory_tag_a", "memory_tag_b"],
+        "reviewed_noise_ids": [],
+        "deferred_ids": [],
+        "ungrouped_ids": [],
+        "mnions": [
+            {
+                "review_id": "review_packet:mnion:1",
+                "grouped_ids": ["memory_tag_a"],
+                "mnion": {"summary": "first ready topic", "valence": 0.81, "rationale": None},
+            },
+            {
+                "review_id": "review_packet:mnion:2",
+                "grouped_ids": ["memory_tag_b"],
+                "mnion": {"summary": "second ready topic", "valence": 0.72, "rationale": None},
+            },
+        ],
+    }
+    receipts.write_text(__import__("json").dumps(receipt) + "\n", encoding="utf-8")
+
+    count = materialize_mnion_items_sqlite(receipts_path=receipts, db_path=db)
+    first = get_item(review_id="review_packet:mnion:1", db_path=db)
+    second = get_item(review_id="review_packet:mnion:2", db_path=db)
+
+    assert count == 2
+    assert first is not None
+    assert first.mnion.summary == "first ready topic"
+    assert first.grouped_ids == ["memory_tag_a"]
+    assert second is not None
+    assert second.mnion.summary == "second ready topic"
+    assert second.grouped_ids == ["memory_tag_b"]
+
+
 def test_resolve_pointer_uses_review_id_route_without_scanning_prompt_context(tmp_path):
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"

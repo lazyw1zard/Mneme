@@ -52,14 +52,21 @@ def consolidate_review_tool_guidance(selected_ids: list[str]) -> dict[str, Any]:
     """Return compact agent-facing guidance for closing pending Mneme review."""
     return {
         "tool": "consolidate_review",
-        "purpose": "Record an agent-authored micro-consolidation mnion for the current pending review and lift the capture write-barrier.",
+        "purpose": "Record live-agent-authored packet outcomes for the current pending review and lift the capture write-barrier.",
         "required_fields": ["selected_ids", "summary", "valence", "member_ids"],
         "optional_fields": ["rationale"],
+        "packet_mode": {
+            "required_fields": ["selected_ids", "mnions"],
+            "outcome_fields": ["reviewed_noise_ids", "deferred", "ungrouped_ids"],
+            "coverage": "every selected id must appear in exactly one explicit outcome",
+        },
         "selected_ids": list(selected_ids),
         "constraints": [
             "selected_ids must exactly match the pending review packet ids",
-            "summary and rationale are written by the live agent; Mneme does not auto-generate semantics",
-            "member_ids must be selected memory_tag ids included in this mnion",
+            "use legacy single-mnion fields or packet_mode fields, never both",
+            "all summaries and rationales are written by the live agent; Mneme does not auto-generate semantics",
+            "member ids and all explicit outcomes must be selected memory_tag ids",
+            "deferred outcomes require a non-empty reason and reopen_policy",
             "this does not write kernel notes, engrams, embeddings, or external effects",
         ],
     }

@@ -81,6 +81,23 @@ class Mnion:
 
 
 @dataclass(frozen=True)
+class MnionGroup:
+    """One semantic mnion and the packet members that formed it."""
+
+    mnion: Mnion
+    member_ids: list[str]
+
+
+@dataclass(frozen=True)
+class DeferredTagOutcome:
+    """Explicit not-now outcome with enough policy to reopen deliberately."""
+
+    memory_tag_id: str
+    reason: str
+    reopen_policy: str
+
+
+@dataclass(frozen=True)
 class MicroConsolidationError:
     reason: str
     message: str
@@ -92,6 +109,9 @@ class MicroConsolidationResult:
     request: MicroConsolidationRequest
     mnion: Mnion | None = None
     grouped_ids: list[str] | None = None
+    mnion_groups: list[MnionGroup] | None = None
+    reviewed_noise_ids: list[str] | None = None
+    deferred: list[DeferredTagOutcome] | None = None
     error: MicroConsolidationError | None = None
 
     @property
@@ -136,6 +156,7 @@ def derive_review_state(review_receipts: list[dict[str, Any]]) -> dict[str, Revi
             # them in the created mnion, so they must remain eligible for a
             # later review instead of being silently consumed by this receipt.
             ("reviewed_ids", "reviewed", "reviewed"),
+            ("reviewed_noise_ids", "reviewed", "noise"),
             ("deferred_ids", "deferred", "deferred"),
         ):
             raw_ids = receipt.get(field, [])
@@ -376,19 +397,73 @@ def apply_micro_consolidation_review(
     stores only semantic content; selected/grouped/ungrouped ids stay outside it
     so future SQLite can index provenance without bloating the semantic object.
     """
-    if not result.ok or result.mnion is None:
+    if not result.ok:
         raise ValueError("cannot apply an unsuccessful micro-consolidation result")
 
     selected_ids = list(result.request.selection.selected_ids)
-    grouped_ids = list(result.grouped_ids or [])
     selected_set = set(selected_ids)
-    unknown_grouped = [memory_tag_id for memory_tag_id in grouped_ids if memory_tag_id not in selected_set]
-    if unknown_grouped:
-        raise ValueError(f"grouped ids must come from selected memory tags: {unknown_grouped}")
-    ungrouped_ids = [memory_tag_id for memory_tag_id in selected_ids if memory_tag_id not in set(grouped_ids)]
+    groups = list(result.mnion_groups or [])
+    if not groups:
+        if result.mnion is None:
+            raise ValueError("a successful micro-consolidation result requires at least one mnion")
+        groups = [MnionGroup(mnion=result.mnion, member_ids=list(result.grouped_ids or []))]
+
+    grouped_ids: list[str] = []
+    for group in groups:
+        if not isinstance(group, MnionGroup):
+            raise ValueError("mnion_groups must contain MnionGroup values")
+        if not group.mnion.summary.strip():
+            raise ValueError("mnion summary is required")
+        if not 0.0 <= group.mnion.valence <= 1.0:
+            raise ValueError("mnion valence must be between 0.0 and 1.0")
+        member_ids = list(group.member_ids)
+        if not member_ids:
+            raise ValueError("each mnion group requires at least one member id")
+        if len(set(member_ids)) != len(member_ids):
+            raise ValueError("mnion group member ids must be unique")
+        if any(not isinstance(memory_tag_id, str) or not memory_tag_id for memory_tag_id in member_ids):
+            raise ValueError("mnion group member ids must be non-empty strings")
+        grouped_ids.extend(member_ids)
+
+    if len(set(grouped_ids)) != len(grouped_ids):
+        raise ValueError("mnion group member ids must be disjoint")
+
+    reviewed_noise_ids = list(result.reviewed_noise_ids or [])
+    if len(set(reviewed_noise_ids)) != len(reviewed_noise_ids):
+        raise ValueError("reviewed noise ids must be unique")
+    deferred = list(result.deferred or [])
+    deferred_ids: list[str] = []
+    for outcome in deferred:
+        if not isinstance(outcome, DeferredTagOutcome):
+            raise ValueError("deferred outcomes must be DeferredTagOutcome values")
+        if not outcome.reason.strip() or not outcome.reopen_policy.strip():
+            raise ValueError("deferred outcomes require a reason and reopen policy")
+        deferred_ids.append(outcome.memory_tag_id)
+    if len(set(deferred_ids)) != len(deferred_ids):
+        raise ValueError("deferred memory tag ids must be unique")
+
+    classified_ids = [*grouped_ids, *reviewed_noise_ids, *deferred_ids]
+    unknown_ids = [memory_tag_id for memory_tag_id in classified_ids if memory_tag_id not in selected_set]
+    if unknown_ids:
+        raise ValueError(f"packet outcome ids must come from selected memory tags: {unknown_ids}")
+    if len(set(classified_ids)) != len(classified_ids):
+        raise ValueError("packet outcome ids must be disjoint")
+    classified_set = set(classified_ids)
+    ungrouped_ids = [memory_tag_id for memory_tag_id in selected_ids if memory_tag_id not in classified_set]
+
+    review_id = f"review_{uuid.uuid4().hex}"
+    multiple_groups = len(groups) > 1
+    mnion_entries = [
+        {
+            "review_id": f"{review_id}:mnion:{index}" if multiple_groups else review_id,
+            "grouped_ids": list(group.member_ids),
+            "mnion": asdict(group.mnion),
+        }
+        for index, group in enumerate(groups, start=1)
+    ]
 
     receipt: dict[str, Any] = {
-        "id": f"review_{uuid.uuid4().hex}",
+        "id": review_id,
         "kind": "micro_consolidation_review",
         "status": "reviewed",
         "created_at": _utc_timestamp(),
@@ -396,10 +471,15 @@ def apply_micro_consolidation_review(
         "selected_ids": selected_ids,
         "grouped_ids": grouped_ids,
         "ungrouped_ids": ungrouped_ids,
-        "deferred_ids": [],
+        "reviewed_noise_ids": reviewed_noise_ids,
+        "deferred_ids": deferred_ids,
+        "deferred": [asdict(outcome) for outcome in deferred],
         "selection": asdict(result.request.selection),
-        "mnion": asdict(result.mnion),
+        "mnions": mnion_entries,
     }
+    if len(groups) == 1:
+        # Preserve the established single-mnion receipt surface and routes.
+        receipt["mnion"] = asdict(groups[0].mnion)
     _append_jsonl(receipt_path, receipt)
     return receipt
 

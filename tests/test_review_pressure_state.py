@@ -38,3 +38,16 @@ def test_pending_review_resolution_requires_every_selected_id_to_be_covered():
     ]
 
     assert pending_review_is_resolved(pending, receipts) is False
+
+
+def test_pending_review_resolution_counts_explicit_noise_separately_from_queue_state():
+    pending = _pending(["memory_tag_a", "memory_tag_noise", "memory_tag_later"])
+    receipt = {
+        "id": "review_1",
+        "grouped_ids": ["memory_tag_a"],
+        "reviewed_noise_ids": ["memory_tag_noise"],
+        "deferred_ids": ["memory_tag_later"],
+        "ungrouped_ids": [],
+    }
+
+    assert pending_review_is_resolved(pending, [receipt]) is True
