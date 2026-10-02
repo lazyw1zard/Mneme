@@ -37,6 +37,7 @@ from .review_pressure import (
     consolidate_review_tool_guidance,
     evaluate_review_pressure,
     latest_review_mneme_call_seq,
+    pinned_unread_backlog_stats,
 )
 from .review_pressure_state import (
     clear_pending_review,
@@ -614,11 +615,17 @@ def create_server(
             packet_limit=config.review_pressure.packet_limit,
             review_receipts=review_receipts,
         )
+        pinned_stats = pinned_unread_backlog_stats(
+            review_request.memory_tags,
+            high_valence_threshold=config.memory_tag.high_valence_threshold,
+        )
         pressure = evaluate_review_pressure(
             capture_result=result,
             active_unread_count=review_request.selection.unread_active_count,
             config=config,
             last_review_seq=latest_review_mneme_call_seq(review_receipts),
+            pinned_unread_count=int(pinned_stats["pinned_unread_count"] or 0),
+            oldest_pinned_unread_age_seconds=pinned_stats["oldest_pinned_unread_age_seconds"],
         )
         ingress = build_review_pressure_ingress(decision=pressure, review_request=review_request)
         if pressure.needed and ingress is not None:
@@ -664,6 +671,8 @@ def create_server(
                 "active_unread_count": review_request.selection.unread_active_count,
                 "reviewed_active_count": review_request.selection.reviewed_active_count,
                 "deferred_count": review_request.selection.deferred_count,
+                "pinned_unread_count": pinned_stats["pinned_unread_count"],
+                "oldest_pinned_unread_age_seconds": pinned_stats["oldest_pinned_unread_age_seconds"],
                 "reason": review_request.reason,
             },
             "do_not_infer": [

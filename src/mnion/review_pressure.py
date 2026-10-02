@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from .config import MnemeConfig
@@ -72,12 +73,57 @@ def consolidate_review_tool_guidance(selected_ids: list[str]) -> dict[str, Any]:
     }
 
 
+def pinned_unread_backlog_stats(
+    memory_tags: list[Any],
+    *,
+    high_valence_threshold: float,
+    now: datetime | None = None,
+) -> dict[str, int | None]:
+    """Return model-free wall-clock pressure stats for pinned unread tags.
+
+    The detector consumes counts/ages instead of reading ledgers itself. This
+    keeps review pressure script-shaped while allowing old pinned material to
+    apply pressure on the next Mneme call even when call_seq has not advanced
+    during the quiet period.
+    """
+    now_utc = now or datetime.now(timezone.utc)
+    if now_utc.tzinfo is None:
+        now_utc = now_utc.replace(tzinfo=timezone.utc)
+    else:
+        now_utc = now_utc.astimezone(timezone.utc)
+
+    oldest: int | None = None
+    count = 0
+    for tag in memory_tags:
+        if float(getattr(tag, "valence", 0.0)) < high_valence_threshold:
+            continue
+        captured_at = _parse_utc_datetime(str(getattr(tag, "captured_at", "")))
+        if captured_at is None:
+            continue
+        age = max(0, int((now_utc - captured_at).total_seconds()))
+        count += 1
+        oldest = age if oldest is None else max(oldest, age)
+    return {"pinned_unread_count": count, "oldest_pinned_unread_age_seconds": oldest}
+
+
+def _parse_utc_datetime(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def evaluate_review_pressure(
     *,
     capture_result: Any,
     active_unread_count: int,
     config: MnemeConfig,
     last_review_seq: int | None = None,
+    pinned_unread_count: int = 0,
+    oldest_pinned_unread_age_seconds: int | None = None,
 ) -> ReviewPressureDecision:
     """Decide whether a Mneme call should invoke agentic review.
 
@@ -126,7 +172,16 @@ def evaluate_review_pressure(
     if config.review_pressure.trigger_on_interval and interval_due:
         reasons.append("call_seq_interval")
 
-    has_hard_trigger = bool(config.review_pressure.trigger_on_interval and interval_due)
+    pinned_backlog_due = (
+        config.review_pressure.trigger_on_pinned_backlog
+        and int(pinned_unread_count) > 0
+        and oldest_pinned_unread_age_seconds is not None
+        and int(oldest_pinned_unread_age_seconds) >= config.review_pressure.pinned_backlog_age_seconds
+    )
+    if pinned_backlog_due:
+        reasons.append("pinned_backlog_pressure")
+
+    has_hard_trigger = bool((config.review_pressure.trigger_on_interval and interval_due) or pinned_backlog_due)
     if has_hard_trigger and active_count < MIN_REVIEW_BATCH_SIZE:
         reasons.append("insufficient_review_batch")
         has_hard_trigger = False

@@ -20,6 +20,8 @@ call_seq_interval = 5
 trigger_on_high_valence = true
 trigger_on_interval = true
 packet_limit = 4
+trigger_on_pinned_backlog = true
+pinned_backlog_age_seconds = 3600
 
 [storage]
 state_dir = "~/custom-mneme-state"
@@ -36,6 +38,8 @@ state_dir = "~/custom-mneme-state"
     assert config.memory_tag.high_valence_threshold == 0.82
     assert config.review_pressure.call_seq_interval == 5
     assert config.review_pressure.packet_limit == 4
+    assert config.review_pressure.trigger_on_pinned_backlog is True
+    assert config.review_pressure.pinned_backlog_age_seconds == 3600
     assert config.storage.state_dir.as_posix().endswith("custom-mneme-state")
 
 
@@ -97,6 +101,58 @@ def test_review_pressure_uses_high_valence_as_priority_not_hard_trigger_when_mat
     assert decision.reasons == ["high_valence_pinned"]
     assert decision.suggested_action is None
     assert decision.semantic_auto_consolidation is False
+
+
+def test_review_pressure_uses_old_pinned_tags_as_backlog_pressure_not_high_valence_trigger(tmp_path):
+    config = MnemeConfig(review_pressure=ReviewPressureConfig(pinned_backlog_age_seconds=3600))
+    result = type("Capture", (), {"mneme_call_seq": 17, "valence_after": 0.2, "action": "created"})()
+
+    decision = evaluate_review_pressure(
+        capture_result=result,
+        active_unread_count=3,
+        config=config,
+        pinned_unread_count=1,
+        oldest_pinned_unread_age_seconds=3600,
+    )
+
+    assert decision.needed is True
+    assert decision.reasons == ["pinned_backlog_pressure"]
+    assert decision.suggested_action == "prepare_micro_consolidation_request"
+    assert decision.semantic_auto_consolidation is False
+
+
+def test_review_pressure_does_not_trigger_pinned_backlog_before_configured_age(tmp_path):
+    config = MnemeConfig(review_pressure=ReviewPressureConfig(pinned_backlog_age_seconds=3600))
+    result = type("Capture", (), {"mneme_call_seq": 17, "valence_after": 0.2, "action": "created"})()
+
+    decision = evaluate_review_pressure(
+        capture_result=result,
+        active_unread_count=3,
+        config=config,
+        pinned_unread_count=1,
+        oldest_pinned_unread_age_seconds=3599,
+    )
+
+    assert decision.needed is False
+    assert decision.reasons == []
+    assert decision.suggested_action is None
+
+
+def test_review_pressure_does_not_make_old_pinned_singletons_into_review_packets(tmp_path):
+    config = MnemeConfig(review_pressure=ReviewPressureConfig(pinned_backlog_age_seconds=3600))
+    result = type("Capture", (), {"mneme_call_seq": 17, "valence_after": 0.2, "action": "created"})()
+
+    decision = evaluate_review_pressure(
+        capture_result=result,
+        active_unread_count=1,
+        config=config,
+        pinned_unread_count=1,
+        oldest_pinned_unread_age_seconds=3600,
+    )
+
+    assert decision.needed is False
+    assert decision.reasons == ["pinned_backlog_pressure", "insufficient_review_batch"]
+    assert decision.suggested_action is None
 
 
 def test_review_pressure_checks_call_seq_interval_on_each_mneme_call(tmp_path):

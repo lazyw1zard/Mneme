@@ -24,6 +24,8 @@ class ReviewPressureConfig:
     trigger_on_high_valence: bool = True
     trigger_on_interval: bool = True
     packet_limit: int = 8
+    trigger_on_pinned_backlog: bool = True
+    pinned_backlog_age_seconds: int = 24 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,12 @@ def load_mneme_config(path: str | Path | None = None) -> MnemeConfig:
             review_pressure_raw.get("trigger_on_interval", ReviewPressureConfig.trigger_on_interval)
         ),
         packet_limit=int(review_pressure_raw.get("packet_limit", ReviewPressureConfig.packet_limit)),
+        trigger_on_pinned_backlog=bool(
+            review_pressure_raw.get("trigger_on_pinned_backlog", ReviewPressureConfig.trigger_on_pinned_backlog)
+        ),
+        pinned_backlog_age_seconds=int(
+            review_pressure_raw.get("pinned_backlog_age_seconds", ReviewPressureConfig.pinned_backlog_age_seconds)
+        ),
     )
     storage = StorageConfig(
         state_dir=Path(str(storage_raw.get("state_dir", StorageConfig().state_dir))).expanduser(),
@@ -94,3 +102,5 @@ def _validate_config(*, memory_tag: MemoryTagConfig, review_pressure: ReviewPres
         raise ValueError("review_pressure.call_seq_interval must be positive")
     if review_pressure.packet_limit <= 0:
         raise ValueError("review_pressure.packet_limit must be positive")
+    if review_pressure.pinned_backlog_age_seconds <= 0:
+        raise ValueError("review_pressure.pinned_backlog_age_seconds must be positive")

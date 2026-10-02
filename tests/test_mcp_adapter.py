@@ -1,6 +1,8 @@
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 
+from mnion.core import MemoryTagCaptureRequest, capture_memory_tag_record
 from mnion.mcp_server import create_server
 from mnion.micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
 
@@ -29,6 +31,25 @@ call_seq_interval = {call_seq_interval}
 trigger_on_high_valence = true
 trigger_on_interval = true
 packet_limit = {packet_limit}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    return config
+
+
+def _pinned_backlog_config(tmp_path, *, pinned_backlog_age_seconds=3600, call_seq_interval=999, packet_limit=8):
+    config = tmp_path / "mneme_config.toml"
+    config.write_text(
+        f"""
+[review_pressure]
+enabled = true
+call_seq_interval = {call_seq_interval}
+trigger_on_high_valence = true
+trigger_on_interval = true
+packet_limit = {packet_limit}
+trigger_on_pinned_backlog = true
+pinned_backlog_age_seconds = {pinned_backlog_age_seconds}
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -155,6 +176,48 @@ def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     assert raw["valence"] == 0.76
     assert "status" not in raw
     assert "promotion" not in raw
+
+
+def test_mcp_capture_triggers_old_pinned_backlog_pressure_without_high_valence_hard_trigger(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    pending = tmp_path / "pending_review.json"
+    old_now = datetime.now(timezone.utc) - timedelta(hours=2)
+    pinned = capture_memory_tag_record(
+        MemoryTagCaptureRequest(
+            delta="Old pinned trace should apply backlog pressure after wall-clock age without becoming a singleton.",
+            valence=0.91,
+            hooks=["project:mneme", "old:pinned"],
+            trigger="old_pinned_backlog_fixture",
+        ),
+        ledger_path=ledger,
+        state_path=state,
+        now=old_now,
+    )
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        pending_review_path=pending,
+        config_path=_pinned_backlog_config(tmp_path, pinned_backlog_age_seconds=3600),
+    )
+
+    result = run(server.call_tool("capture", {
+        "delta": "Fresh low-valence neighbor gives the old pinned trace enough batch material for backlog review.",
+        "valence": 0.22,
+        "hooks": ["project:mneme", "fresh:neighbor"],
+        "trigger": "pinned_backlog_neighbor",
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is True
+    assert structured["valence_crosses_threshold"] is False
+    assert structured["review_pressure"]["needed"] is True
+    assert structured["review_pressure"]["reasons"] == ["pinned_backlog_pressure"]
+    assert structured["review_pressure"]["suggested_action"] == "prepare_micro_consolidation_request"
+    assert structured["review_packet"]["active_unread_count"] == 2
+    assert structured["review_packet"]["selected_ids"][0] == pinned.id
+    assert structured["agent_ingress"]["next_tool"] == "consolidate_review"
+    assert pending.exists()
 
 
 def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_path):
