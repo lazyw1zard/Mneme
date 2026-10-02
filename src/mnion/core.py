@@ -526,8 +526,11 @@ def load_memory_tags(
         if effective_valence >= CONSOLIDATION_THRESHOLD:
             # High-valence tags are pinned review material: they should wait for
             # batch micro-consolidation instead of disappearing just because the
-            # singleton hard-barrier path no longer fires immediately.
+            # singleton hard-barrier path no longer fires immediately. Protect
+            # them from both call-count and wall-clock TTL until review/defer
+            # state removes them from ordinary unread selection.
             call_expired = False
+            wall_expired = False
         if not include_expired and (wall_expired or call_expired):
             continue
         records.append(record)

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 
 from mnion.core import (
     DEFAULT_ACTIVE_MEMORY_TAG_LIMIT,
@@ -154,3 +155,40 @@ def test_load_memory_tags_keeps_high_valence_tags_after_call_ttl(tmp_path):
     )
 
     assert [m.id for m in load_memory_tags(ledger_path=ledger, state_path=state)] == [pinned.target_id, third.id, fourth.id]
+
+
+def test_load_memory_tags_keeps_high_valence_tags_after_wall_clock_ttl(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    captured_at = datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc)
+
+    pinned = capture_memory_tag_record(
+        MemoryTagCaptureRequest(
+            delta="high valence pinned trace should not disappear before review",
+            valence=0.91,
+            ttl_seconds=1,
+        ),
+        ledger_path=ledger,
+        state_path=state,
+        now=captured_at,
+    )
+    low = capture_memory_tag_record(
+        MemoryTagCaptureRequest(delta="low valence trace expires by wall clock", valence=0.2, ttl_seconds=1),
+        ledger_path=ledger,
+        state_path=state,
+        now=captured_at,
+    )
+
+    loaded = load_memory_tags(
+        ledger_path=ledger,
+        state_path=state,
+        now=captured_at + timedelta(seconds=2),
+    )
+
+    assert [record.id for record in loaded] == [pinned.id]
+    assert [record.id for record in load_memory_tags(
+        ledger_path=ledger,
+        state_path=state,
+        now=captured_at + timedelta(seconds=2),
+        include_expired=True,
+    )] == [pinned.id, low.id]
