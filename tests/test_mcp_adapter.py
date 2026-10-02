@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 
-from mnion.core import MemoryTagCaptureRequest, capture_memory_tag_record
+from mnion.core import MAX_DELTA_CHARS, MemoryTagCaptureRequest, capture_memory_tag_record
 from mnion.mcp_server import create_server
 from mnion.micro_consolidation import load_micro_consolidation_review_receipts, prepare_micro_consolidation_request
 
@@ -177,6 +177,36 @@ def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     assert raw["valence"] == 0.76
     assert "status" not in raw
     assert "promotion" not in raw
+
+
+def test_mcp_capture_returns_structured_error_for_oversized_delta_without_writing(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        config_path=_interval_config(tmp_path, call_seq_interval=10, packet_limit=6),
+    )
+
+    result = run(server.call_tool("capture", {
+        "delta": "x" * (MAX_DELTA_CHARS + 1),
+        "valence": 0.4,
+        "hooks": ["project:mneme", "invalid:oversized"],
+        "trigger": "oversized_delta_regression",
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is False
+    assert structured["action"] == "invalid_capture_request"
+    assert structured["target_id"] is None
+    assert structured["memory_tag"] is None
+    assert structured["record"] is None
+    assert structured["error"]["code"] == "invalid_capture_request"
+    assert structured["error"]["field"] == "delta"
+    assert structured["error"]["message"] == f"delta must be <= {MAX_DELTA_CHARS} characters"
+    assert structured["proposed_capture"]["delta_length"] == MAX_DELTA_CHARS + 1
+    assert not ledger.exists()
+    assert not state.exists()
 
 
 def test_mcp_capture_triggers_old_pinned_backlog_pressure_without_high_valence_hard_trigger(tmp_path):

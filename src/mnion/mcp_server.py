@@ -163,12 +163,49 @@ def _verified_review_id_for_pending(
 def _proposed_capture_payload(request: MemoryTagCaptureRequest) -> dict[str, Any]:
     return {
         "delta": request.delta,
+        "delta_length": len(request.delta),
         "valence": request.valence,
         "ttl_seconds": request.ttl_seconds,
         "call_ttl": request.call_ttl,
         "hooks": list(request.hooks or []),
         "trigger": request.trigger,
         "affect_hints": list(request.affect_hints or []),
+    }
+
+
+def _invalid_capture_request_response(*, request: MemoryTagCaptureRequest, error: ValueError, state: Path) -> dict[str, Any]:
+    message = str(error)
+    field = message.split(" ", 1)[0] if message else "request"
+    return {
+        "ok": False,
+        "action": "invalid_capture_request",
+        "target_id": None,
+        "memory_tag": None,
+        "record": None,
+        "linked_ids": [],
+        "match_score": None,
+        "reason": "invalid_capture_request",
+        "valence_before": None,
+        "valence_after": None,
+        "event": None,
+        "mneme_call_seq": current_mneme_call_seq(state_path=state),
+        "mneme_call_age": 0,
+        "valence_crosses_threshold": False,
+        "threshold": None,
+        "review_pressure": {"needed": False, "reasons": ["invalid_capture_request"]},
+        "agent_ingress": None,
+        "review_packet": {"selected_ids": [], "memory_tags": [], "next_tool": None},
+        "pending_review": None,
+        "proposed_capture": _proposed_capture_payload(request),
+        "error": {
+            "code": "invalid_capture_request",
+            "field": field,
+            "message": message,
+        },
+        "do_not_infer": [
+            "The capture request failed validation before any memory_tag write or Mneme call-sequence increment.",
+            "No kernel note, engram, read-model row, or durable semantic promotion was created.",
+        ],
     }
 
 
@@ -561,7 +598,10 @@ def create_server(
             trigger=trigger,
             affect_hints=affect_hints,
         )
-        validate_memory_tag_capture_request(request)
+        try:
+            validate_memory_tag_capture_request(request)
+        except ValueError as exc:
+            return _invalid_capture_request_response(request=request, error=exc, state=state)
         review_receipts = load_micro_consolidation_review_receipts(receipts)
         try:
             pending_payload = load_pending_review(pending_review)
