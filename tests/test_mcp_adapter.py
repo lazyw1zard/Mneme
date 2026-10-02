@@ -585,6 +585,124 @@ def test_mcp_consolidate_review_requires_explicit_outcome_for_every_selected_id(
     assert not receipts.exists()
 
 
+def test_mcp_consolidate_review_accepts_all_noise_packet_without_materialized_items(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    pending = tmp_path / "pending_review.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=db,
+        pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
+    )
+
+    first = _create_interval_pending_review(server)
+    selected_ids = first["review_packet"]["selected_ids"]
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": selected_ids,
+        "mnions": [],
+        "reviewed_noise_ids": selected_ids,
+        "deferred": [],
+        "ungrouped_ids": [],
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is True
+    assert structured["action"] == "micro_consolidation_review_recorded"
+    assert structured["packet_review_id"].startswith("review_")
+    assert "review_id" not in structured
+    assert structured["review_ids"] == []
+    assert structured["items"] == []
+    assert structured["route"] == "no materialized mnion items; packet receipt recorded outcomes only"
+    assert structured["grouped_ids"] == []
+    assert structured["reviewed_noise_ids"] == selected_ids
+    assert structured["deferred_ids"] == []
+    assert structured["ungrouped_ids"] == []
+    assert structured["cleared_pending_review"] is True
+    assert not pending.exists()
+
+    stored = load_micro_consolidation_review_receipts(receipts)
+    assert stored[0]["mnions"] == []
+    assert "mnion" not in stored[0]
+    next_request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=10,
+        review_receipts=stored,
+    )
+    assert next_request.selection.selected_ids == []
+    assert next_request.selection.reviewed_active_count == 2
+
+    packet_route_result = run(server.call_tool("get_item", {"review_id": structured["packet_review_id"]}))
+    _, packet_route = tool_result_parts(packet_route_result)
+    assert packet_route["ok"] is False
+
+
+def test_mcp_consolidate_review_accepts_deferred_only_packet_without_materialized_items(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    pending = tmp_path / "pending_review.json"
+    server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=db,
+        pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
+    )
+
+    first = _create_interval_pending_review(server)
+    selected_ids = first["review_packet"]["selected_ids"]
+
+    result = run(server.call_tool("consolidate_review", {
+        "selected_ids": selected_ids,
+        "mnions": [],
+        "reviewed_noise_ids": [],
+        "deferred": [
+            {
+                "memory_tag_id": selected_ids[0],
+                "reason": "not enough context yet",
+                "reopen_policy": "after_related_capture",
+            },
+            {
+                "memory_tag_id": selected_ids[1],
+                "reason": "needs future contour review",
+                "reopen_policy": "explicit_needs_rereview",
+            },
+        ],
+        "ungrouped_ids": [],
+    }))
+    _, structured = tool_result_parts(result)
+
+    assert structured["ok"] is True
+    assert structured["review_ids"] == []
+    assert structured["items"] == []
+    assert structured["route"] == "no materialized mnion items; packet receipt recorded outcomes only"
+    assert structured["grouped_ids"] == []
+    assert structured["reviewed_noise_ids"] == []
+    assert structured["deferred_ids"] == selected_ids
+    assert structured["ungrouped_ids"] == []
+    assert structured["cleared_pending_review"] is True
+    assert not pending.exists()
+
+    stored = load_micro_consolidation_review_receipts(receipts)
+    next_request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=10,
+        review_receipts=stored,
+    )
+    assert next_request.selection.selected_ids == []
+    assert next_request.selection.deferred_count == 2
+
+
 def test_mcp_consolidate_review_accepts_two_mnions_and_verifies_both_routes(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
@@ -1150,6 +1268,62 @@ def test_mcp_consolidate_review_keeps_latch_when_read_model_materialization_fail
     assert blocked["action"] == "redirected_to_pending_review"
     assert blocked["next_tool"] == "consolidate_review"
     assert pending.exists()
+
+
+def test_mcp_capture_lazy_clears_no_item_receipt_after_read_model_failure(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    broken_read_model = tmp_path / "read_model_directory"
+    broken_read_model.mkdir()
+    repaired_read_model = tmp_path / "mneme.sqlite3"
+    pending = tmp_path / "pending_review.json"
+    broken_server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=broken_read_model,
+        pending_review_path=pending,
+        config_path=_interval_config(tmp_path),
+    )
+
+    first = _create_interval_pending_review(broken_server)
+    selected_ids = first["review_packet"]["selected_ids"]
+    result = run(broken_server.call_tool("consolidate_review", {
+        "selected_ids": selected_ids,
+        "mnions": [],
+        "reviewed_noise_ids": selected_ids,
+        "deferred": [],
+        "ungrouped_ids": [],
+    }))
+    _, failed = tool_result_parts(result)
+
+    assert failed["ok"] is False
+    assert failed["action"] == "review_recorded_read_model_failed"
+    assert failed["review_ids"] == []
+    assert failed["route"] == "no materialized mnion items; repair pending latch by retrying any valid capture"
+    assert pending.exists()
+    assert receipts.exists()
+
+    repaired_server = create_server(
+        ledger_path=ledger,
+        state_path=state,
+        receipts_path=receipts,
+        read_model_path=repaired_read_model,
+        pending_review_path=pending,
+        config_path=_interval_config(tmp_path, call_seq_interval=99),
+    )
+    capture_result = run(repaired_server.call_tool("capture", {
+        "delta": "Valid capture after no-item receipt should lazily clear the covered pending latch.",
+        "valence": 0.2,
+        "hooks": ["project:mneme", "no-item:lazy-clear"],
+        "trigger": "after_no_item_read_model_failure",
+    }))
+    _, capture = tool_result_parts(capture_result)
+
+    assert capture["ok"] is True
+    assert capture["action"] in {"created", "linked_new", "reinforced"}
+    assert not pending.exists()
 
 
 

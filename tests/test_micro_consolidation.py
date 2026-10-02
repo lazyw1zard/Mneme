@@ -359,6 +359,86 @@ def test_apply_packet_outcomes_records_two_mnions_noise_and_deferred_without_req
     assert next_request.selection.deferred_count == 1
 
 
+def test_apply_packet_outcomes_all_noise_records_review_without_fake_mnion(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    records = _capture_many(ledger, state, 3)
+    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, packet_limit=2)
+    result = MicroConsolidationResult(
+        ok=True,
+        request=request,
+        mnion_groups=[],
+        reviewed_noise_ids=[records[0].id, records[1].id],
+        deferred=[],
+    )
+
+    receipt = apply_micro_consolidation_review(result, receipt_path=receipts, state_path=state)
+
+    assert receipt["selected_ids"] == [records[0].id, records[1].id]
+    assert receipt["grouped_ids"] == []
+    assert receipt["reviewed_noise_ids"] == [records[0].id, records[1].id]
+    assert receipt["deferred_ids"] == []
+    assert receipt["ungrouped_ids"] == []
+    assert receipt["mnions"] == []
+    assert "mnion" not in receipt
+
+    next_request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=10,
+        review_receipts=[receipt],
+    )
+    assert next_request.selection.selected_ids == [records[2].id]
+    assert next_request.selection.reviewed_active_count == 2
+    assert next_request.selection.deferred_count == 0
+
+
+def test_apply_packet_outcomes_deferred_only_records_review_without_fake_mnion(tmp_path):
+    ledger = tmp_path / "memory_tags.jsonl"
+    state = tmp_path / "mneme_seq.json"
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    records = _capture_many(ledger, state, 2)
+    request = prepare_micro_consolidation_request(ledger_path=ledger, state_path=state, packet_limit=2)
+    result = MicroConsolidationResult(
+        ok=True,
+        request=request,
+        mnion_groups=[],
+        reviewed_noise_ids=[],
+        deferred=[
+            micro_consolidation.DeferredTagOutcome(
+                memory_tag_id=records[0].id,
+                reason="not enough contour evidence yet",
+                reopen_policy="after_related_capture",
+            ),
+            micro_consolidation.DeferredTagOutcome(
+                memory_tag_id=records[1].id,
+                reason="needs future review context",
+                reopen_policy="explicit_needs_rereview",
+            ),
+        ],
+    )
+
+    receipt = apply_micro_consolidation_review(result, receipt_path=receipts, state_path=state)
+
+    assert receipt["grouped_ids"] == []
+    assert receipt["reviewed_noise_ids"] == []
+    assert receipt["deferred_ids"] == [records[0].id, records[1].id]
+    assert receipt["ungrouped_ids"] == []
+    assert receipt["mnions"] == []
+    assert "mnion" not in receipt
+
+    next_request = prepare_micro_consolidation_request(
+        ledger_path=ledger,
+        state_path=state,
+        packet_limit=10,
+        review_receipts=[receipt],
+    )
+    assert next_request.selection.selected_ids == []
+    assert next_request.selection.reviewed_active_count == 0
+    assert next_request.selection.deferred_count == 2
+
+
 def test_apply_packet_outcomes_rejects_overlapping_semantic_groups(tmp_path):
     assert hasattr(micro_consolidation, "MnionGroup"), "multi-mnion packet outcomes are not implemented"
     ledger = tmp_path / "memory_tags.jsonl"

@@ -135,6 +135,14 @@ def _receipt_covers_selected_ids(receipt: dict[str, Any], selected_ids: list[str
     return all(memory_tag_id in covered for memory_tag_id in selected_ids)
 
 
+def _receipt_is_no_item_packet(receipt: dict[str, Any]) -> bool:
+    return (
+        not _receipt_review_ids(receipt)
+        and not receipt.get("grouped_ids", [])
+        and (bool(receipt.get("reviewed_noise_ids")) or bool(receipt.get("deferred_ids")))
+    )
+
+
 def _verified_review_id_for_pending(
     *,
     pending_review: dict[str, Any],
@@ -149,10 +157,12 @@ def _verified_review_id_for_pending(
         review_id = receipt.get("id") or receipt.get("review_id")
         if not isinstance(review_id, str) or not review_id:
             continue
+        if not _receipt_covers_selected_ids(receipt, selected_ids):
+            continue
         review_ids = _receipt_review_ids(receipt)
         if not review_ids:
-            continue
-        if not _receipt_covers_selected_ids(receipt, selected_ids):
+            if _receipt_is_no_item_packet(receipt):
+                return review_id
             continue
         _materialize_receipts(receipts_path, read_model_path)
         if all(get_item(review_id=item_review_id, db_path=read_model_path) is not None for item_review_id in review_ids):
@@ -828,7 +838,7 @@ def create_server(
 
         if packet_mode:
             try:
-                mnion_groups = _mnion_groups_from_tool_payload(mnions)
+                mnion_groups = [] if not mnions else _mnion_groups_from_tool_payload(mnions)
                 noise_ids = _review_id_list(
                     reviewed_noise_ids if reviewed_noise_ids is not None else [],
                     field="reviewed_noise_ids",
@@ -954,6 +964,7 @@ def create_server(
             }
 
         review_ids = _receipt_review_ids(receipt)
+        no_item_packet = _receipt_is_no_item_packet(receipt)
         try:
             _materialize_receipts(receipts, read_model)
             items = [get_item(review_id=review_id, db_path=read_model) for review_id in review_ids]
@@ -967,7 +978,11 @@ def create_server(
                 "selected_ids": receipt["selected_ids"],
                 "grouped_ids": receipt["grouped_ids"],
                 "cleared_pending_review": False,
-                "route": "repair read-model, then confirm every get_item(review_id) route",
+                "route": (
+                    "no materialized mnion items; repair pending latch by retrying any valid capture"
+                    if no_item_packet
+                    else "repair read-model, then confirm every get_item(review_id) route"
+                ),
                 "do_not_infer": [
                     "A micro-consolidation receipt was recorded, but every read-model item could not be verified.",
                     "Fail closed: the pending-review latch was kept so the agent is not falsely unblocked.",
@@ -977,7 +992,8 @@ def create_server(
         missing_review_ids = [
             review_id for review_id, item in zip(review_ids, items, strict=True) if item is None
         ]
-        if not review_ids or missing_review_ids:
+        no_item_packet = _receipt_is_no_item_packet(receipt)
+        if (not review_ids and not no_item_packet) or missing_review_ids:
             return {
                 "ok": False,
                 "action": "review_recorded_read_model_failed",
@@ -1030,7 +1046,11 @@ def create_server(
             "deferred": receipt.get("deferred", []),
             "ungrouped_ids": receipt["ungrouped_ids"],
             "cleared_pending_review": not pending_review.exists(),
-            "route": "list_topics -> get_item(review_ids[n])",
+            "route": (
+                "no materialized mnion items; packet receipt recorded outcomes only"
+                if no_item_packet
+                else "list_topics -> get_item(review_ids[n])"
+            ),
             "items": item_payloads,
             "do_not_infer": [
                 "This receipt records the live agent's semantic micro-consolidation; Mneme did not auto-generate the mnion.",

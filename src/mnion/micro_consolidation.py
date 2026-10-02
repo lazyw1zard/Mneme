@@ -403,7 +403,8 @@ def apply_micro_consolidation_review(
     selected_ids = list(result.request.selection.selected_ids)
     selected_set = set(selected_ids)
     groups = list(result.mnion_groups or [])
-    if not groups:
+    no_item_packet = result.mnion_groups is not None and not groups and result.mnion is None
+    if not groups and not no_item_packet:
         if result.mnion is None:
             raise ValueError("a successful micro-consolidation result requires at least one mnion")
         groups = [MnionGroup(mnion=result.mnion, member_ids=list(result.grouped_ids or []))]
@@ -441,6 +442,9 @@ def apply_micro_consolidation_review(
         deferred_ids.append(outcome.memory_tag_id)
     if len(set(deferred_ids)) != len(deferred_ids):
         raise ValueError("deferred memory tag ids must be unique")
+
+    if no_item_packet and not reviewed_noise_ids and not deferred_ids:
+        raise ValueError("a no-item packet requires reviewed noise or deferred outcomes")
 
     classified_ids = [*grouped_ids, *reviewed_noise_ids, *deferred_ids]
     unknown_ids = [memory_tag_id for memory_tag_id in classified_ids if memory_tag_id not in selected_set]
