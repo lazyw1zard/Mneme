@@ -100,3 +100,43 @@ current cue
 An empty memory yields an empty familiarity vocabulary, so the gate stays quiet. As memories grow, each agent/runtime develops its own familiar surfaces while sharing the same code.
 
 For Claude Code, the native adapter should probably be a plugin, not a hand-written hook config: package MCP registration, hooks, and skills together, as popular memory providers do. For Hermes, remember the product constraint: only one external memory provider may be active, so the MCP path must remain fully usable even if a user already uses another Hermes provider.
+
+## 2026-10-03 — Latency-safe ingress and Rust boundary
+
+Spontaneous recall must be latency-safe. The memory receptor must not make the agent feel blocked by memory bureaucracy or wait on heavy recall before answering.
+
+The hot path is deliberately small:
+
+```text
+user turn
+  -> should_probe_metamemory(cue)    # very cheap
+  -> if closed: return empty
+  -> if open: return cached/materialized compact routes if available
+  -> queue or refresh heavier recall for a later turn
+```
+
+The ingress path must not call an LLM, run semantic consolidation, rebuild the whole read model, scan unbounded receipts, or load full mnion bodies. Slow, uncertain, or unavailable recall should return empty rather than delay the turn or invent relevance.
+
+Acceptable first ingress work:
+
+```text
+trivial prompt filter
+familiarity-vocabulary overlap
+small indexed/read-model lookup
+bounded top 1-3 routes
+strict timeout / fail-open-to-empty
+```
+
+Rust is a good target for latency-sensitive and integrity-sensitive Mneme surfaces, but not a reason to rewrite the whole organ before the MVP shape stabilizes. Prefer writing new sensitive core pieces so they can later move cleanly to Rust: pure functions, explicit data shapes, deterministic inputs/outputs, no host assumptions, no hidden global state.
+
+Likely Rust candidates after the contract is stable:
+
+```text
+should_probe_metamemory / familiarity gate
+bounded ingress ranking over the read model
+receipt and pending-latch validation
+append/read-model integrity checks
+small CLI/FFI core used by multiple host adapters
+```
+
+Do not move adapter glue first. Hermes, Claude, Codex, OpenClaw, and MCP layers are host-shaped wrappers; the Rust boundary should protect Mneme's shared core, not freeze a harness-specific form too early.
