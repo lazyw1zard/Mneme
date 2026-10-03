@@ -28,3 +28,45 @@ unresolved  -> ungrouped_ids
 ```
 
 It avoids fake mnions and prevents reviewed noise from reappearing endlessly. Future additions should meet the same bar: they must make the live review action simpler or safer, not just more complete.
+
+## 2026-10-03 — Core before harness adapters
+
+Mneme should not be shaped as an MCP server internally. MCP is one adapter: a portable explicit tool surface for agents, chatbots, scripts, debugging, and cross-harness deliberate recall/save.
+
+The memory organ itself should stay protocol-neutral:
+
+```text
+Mneme core:
+  capture
+  consolidate
+  get_item
+  list_topics
+  assemble_ingress
+  should_probe_metamemory
+```
+
+Host integration is a separate adapter layer. There is no reliable universal memory-provider ABI across current harnesses; popular memory systems usually keep one backend/core and ship per-harness bridges.
+
+```text
+Hermes      -> MemoryProvider adapter
+Claude Code -> hooks / plugin / skills adapter
+Codex       -> hooks / plugin / skills / MCP registration adapter
+OpenClaw    -> plugin hooks / memory bridge adapter
+MCP clients -> MCP adapter
+```
+
+Adapter responsibilities are host-specific and must not leak back into the core ontology:
+
+```text
+how to call recall
+how to insert context
+how to save turn/session material
+how to expose explicit memory tools
+how to survive compaction
+where config/auth lives
+how to render host-native results
+```
+
+MCP work was not wasted: it remains the common minimum and portable hands. But spontaneous recall requires a host-native receptor such as Hermes `prefetch`, Claude/Codex prompt hooks, or OpenClaw prompt/plugin hooks.
+
+Future refactors should separate core outcomes from adapter renderers. For example, `PendingReviewRequired`, `CaptureCreated`, `ReviewClosed`, `MnionItem`, and `IngressHint` should be core meanings; MCP JSON fields such as `next_tool`, `tool_guidance`, or host-specific context blocks should be renderer concerns.
