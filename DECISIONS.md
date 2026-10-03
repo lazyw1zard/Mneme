@@ -70,3 +70,33 @@ how to render host-native results
 MCP work was not wasted: it remains the common minimum and portable hands. But spontaneous recall requires a host-native receptor such as Hermes `prefetch`, Claude/Codex prompt hooks, or OpenClaw prompt/plugin hooks.
 
 Future refactors should separate core outcomes from adapter renderers. For example, `PendingReviewRequired`, `CaptureCreated`, `ReviewClosed`, `MnionItem`, and `IngressHint` should be core meanings; MCP JSON fields such as `next_tool`, `tool_guidance`, or host-specific context blocks should be renderer concerns.
+
+## 2026-10-03 — Minimal host verbs and core recall gate
+
+The chaos of host interfaces can be reduced to a small Mneme-owned contract. Mneme should define its own minimal verbs, then map host surfaces onto them:
+
+```text
+ingress(cue, session)       -> compact spontaneous-recall routes | empty
+tools                       -> capture / consolidate_review / get_item / list_topics
+pre_compress(session_state) -> optional prompt to capture what is worth preserving
+```
+
+Mneme should not start by implementing automatic transcript retention. Many memory providers use host `sync_turn`/`Stop` hooks to save every turn, but Mneme's contour is different: no raw transcript auto-capture; `capture` remains an agentic decision through governed compact surfaces. Host sync hooks may exist later, but not as default semantic ingestion.
+
+The recall gate belongs in Mneme core, not in each host adapter. Host filters such as Hermes `is_trivial_prompt` are useful extra protection, but Claude/Codex/OpenClaw may fire prompt hooks on every message. If filtering is host-specific, each body develops a different memory reflex.
+
+The first gate should be a cheap familiarity test, not a hand-written keyword list:
+
+```text
+current cue
+  -> trivial-prompt filter
+  -> overlap with Mneme-known vocabulary
+       hooks / topic labels / mnion summaries / frequent route tokens
+  -> small shared markers only as boosters
+       "we already decided", "why did we choose", "how was it before"
+  -> if familiar enough: assemble_ingress(cue, session)
+```
+
+An empty memory yields an empty familiarity vocabulary, so the gate stays quiet. As memories grow, each agent/runtime develops its own familiar surfaces while sharing the same code.
+
+For Claude Code, the native adapter should probably be a plugin, not a hand-written hook config: package MCP registration, hooks, and skills together, as popular memory providers do. For Hermes, remember the product constraint: only one external memory provider may be active, so the MCP path must remain fully usable even if a user already uses another Hermes provider.
