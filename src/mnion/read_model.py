@@ -79,7 +79,7 @@ def _topic_for_summary(summary: str) -> tuple[str, str]:
     if "residual" in text or "did not form a sharper object" in text:
         return "Mneme residual / uncategorized", "Reviewed mnion items without a stable topic yet."
     if "continuity" in text or "trace-governed" in text or "first-person" in text:
-        return "Nira continuity / trace-governed identity", "Continuity, identity, and shaped traces."
+        return "Continuity / trace-governed identity", "Continuity, identity, and shaped traces."
     if "micro-consolidation" in text or "bounded unread" in text or "review receipts" in text:
         return "Mneme micro-consolidation", "Review packets, receipts, pointers, and retrieval staging."
     if "naming boundary" in text or "memory_tag-to-mnion" in text:

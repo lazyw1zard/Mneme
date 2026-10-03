@@ -137,7 +137,7 @@ def test_list_topics_for_ingress_returns_compact_memory_areas(tmp_path):
     assert topics
     assert all(isinstance(topic, TopicEntry) for topic in topics)
     rendered = "\n".join(topic.render() for topic in topics)
-    assert "Nira continuity" in rendered
+    assert "Continuity / trace-governed identity" in rendered
     assert "Mneme micro-consolidation" in rendered
     assert "review_trace" in rendered
     assert len(rendered) < 800

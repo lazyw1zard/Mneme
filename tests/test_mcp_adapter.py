@@ -1451,7 +1451,7 @@ def test_mcp_get_item_and_list_topics_expose_mnions_without_sql_or_receipts(tmp_
 
     assert topics["ok"] is True
     assert topics["materialized_count"] == 1
-    assert topics["topics"][0]["label"] == "Nira continuity / trace-governed identity"
+    assert topics["topics"][0]["label"] == "Continuity / trace-governed identity"
     assert topics["topics"][0]["top_review_ids"] == ["review_trace"]
     assert topics["active_ingress"]["kind"] == "mneme_active_mnion_ingress"
     assert topics["active_ingress"]["items"][0]["review_id"] == "review_trace"
