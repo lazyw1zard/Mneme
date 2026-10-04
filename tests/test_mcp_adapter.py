@@ -130,6 +130,98 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
     assert "embedding" not in forbidden
 
 
+def test_mcp_retrieval_repairs_stale_read_model_only_when_needed(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    read_model = tmp_path / "mneme.sqlite3"
+    first_receipt = {
+        "id": "review_first",
+        "kind": "micro_consolidation_review",
+        "status": "reviewed",
+        "created_at": "2026-10-04T00:00:00Z",
+        "selected_ids": ["memory_tag_a"],
+        "grouped_ids": ["memory_tag_a"],
+        "ungrouped_ids": [],
+        "mnion": {"summary": "First reviewed mnion.", "valence": 0.7, "rationale": None},
+    }
+    second_receipt = {
+        "id": "review_second",
+        "kind": "micro_consolidation_review",
+        "status": "reviewed",
+        "created_at": "2026-10-04T00:01:00Z",
+        "selected_ids": ["memory_tag_b"],
+        "grouped_ids": ["memory_tag_b"],
+        "ungrouped_ids": [],
+        "mnion": {"summary": "Second reviewed mnion.", "valence": 0.8, "rationale": None},
+    }
+    receipts.write_text(json.dumps(first_receipt) + "\n", encoding="utf-8")
+    server = create_server(
+        ledger_path=tmp_path / "memory_tags.jsonl",
+        receipts_path=receipts,
+        read_model_path=read_model,
+    )
+
+    first_topics_result = run(server.call_tool("list_topics", {"limit": 4}))
+    _, first_topics = tool_result_parts(first_topics_result)
+    second_topics_result = run(server.call_tool("list_topics", {"limit": 4}))
+    _, second_topics = tool_result_parts(second_topics_result)
+    receipts.write_text(receipts.read_text(encoding="utf-8") + json.dumps(second_receipt) + "\n", encoding="utf-8")
+    item_result = run(server.call_tool("get_item", {"review_id": "review_second"}))
+    _, item = tool_result_parts(item_result)
+
+    assert first_topics["ok"] is True
+    assert first_topics["read_model_refreshed"] is True
+    assert first_topics["materialized_count"] == 1
+    assert first_topics["read_model_status"] == "fresh"
+    assert second_topics["ok"] is True
+    assert second_topics["read_model_refreshed"] is False
+    assert second_topics["materialized_count"] == 0
+    assert item["ok"] is True
+    assert item["item"]["review_id"] == "review_second"
+    assert item["read_model_refreshed"] is True
+    assert item["read_model_status"] == "fresh"
+
+
+def test_mcp_retrieval_does_not_serve_stale_read_model_when_receipts_are_missing(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    read_model = tmp_path / "mneme.sqlite3"
+    old_receipt = {
+        "id": "review_old",
+        "kind": "micro_consolidation_review",
+        "status": "reviewed",
+        "created_at": "2026-10-04T00:00:00Z",
+        "selected_ids": ["memory_tag_old"],
+        "grouped_ids": ["memory_tag_old"],
+        "ungrouped_ids": [],
+        "mnion": {"summary": "Old stale mnion must not leak after receipts disappear.", "valence": 0.7},
+    }
+    receipts.write_text(json.dumps(old_receipt) + "\n", encoding="utf-8")
+    server = create_server(
+        ledger_path=tmp_path / "memory_tags.jsonl",
+        receipts_path=receipts,
+        read_model_path=read_model,
+    )
+    first_topics_result = run(server.call_tool("list_topics", {"limit": 4}))
+    _, first_topics = tool_result_parts(first_topics_result)
+    assert first_topics["topics"][0]["top_review_ids"] == ["review_old"]
+    receipts.unlink()
+
+    missing_topics_result = run(server.call_tool("list_topics", {"limit": 4}))
+    _, missing_topics = tool_result_parts(missing_topics_result)
+    missing_item_result = run(server.call_tool("get_item", {"review_id": "review_old"}))
+    _, missing_item = tool_result_parts(missing_item_result)
+
+    assert missing_topics["ok"] is True
+    assert missing_topics["read_model_status"] == "fresh"
+    assert missing_topics["read_model_refreshed"] is True
+    assert missing_topics["materialized_count"] == 0
+    assert missing_topics["topics"] == []
+    assert missing_topics["active_ingress"] is None
+    assert missing_item["ok"] is False
+    assert missing_item["read_model_status"] == "fresh"
+    assert missing_item["read_model_refreshed"] is False
+    assert missing_item["error"] == "mnion item not found"
+
+
 def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
@@ -1479,6 +1571,9 @@ def test_mcp_get_item_and_list_topics_expose_mnions_without_sql_or_receipts(tmp_
     _, missing = tool_result_parts(missing_result)
     assert missing == {
         "ok": False,
+        "read_model_status": "fresh",
+        "read_model_refreshed": False,
+        "materialized_count": 0,
         "review_id": "missing",
         "error": "mnion item not found",
         "do_not_infer": ["A miss is not proof that the memory never existed; the read-model may need materialization or a different route."],

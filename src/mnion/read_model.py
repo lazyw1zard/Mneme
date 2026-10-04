@@ -32,6 +32,19 @@ class ReadModelFreshness:
 
 
 @dataclass(frozen=True)
+class ReadModelRefreshResult:
+    """Outcome of optionally repairing a stale/missing read-model."""
+
+    before: ReadModelFreshness
+    after: ReadModelFreshness
+    materialized_count: int | None
+
+    @property
+    def refreshed(self) -> bool:
+        return self.materialized_count is not None
+
+
+@dataclass(frozen=True)
 class TopicEntry:
     """Compact memory-area entry for ingress; enough to choose, not flood."""
 
@@ -218,6 +231,16 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
             (RECEIPTS_SIGNATURE_KEY, _receipts_signature(receipts_path)),
         )
         return count
+
+
+def ensure_read_model_fresh(*, receipts_path: str | Path, db_path: str | Path) -> ReadModelRefreshResult:
+    """Materialize the read-model only when it is missing or stale."""
+    before = read_model_freshness(receipts_path=receipts_path, db_path=db_path)
+    if before.status == "fresh":
+        return ReadModelRefreshResult(before=before, after=before, materialized_count=None)
+    materialized_count = materialize_mnion_items_sqlite(receipts_path=receipts_path, db_path=db_path)
+    after = read_model_freshness(receipts_path=receipts_path, db_path=db_path)
+    return ReadModelRefreshResult(before=before, after=after, materialized_count=materialized_count)
 
 
 def _item_from_row(row: sqlite3.Row) -> MnionItem:

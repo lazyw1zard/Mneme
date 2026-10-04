@@ -31,7 +31,13 @@ from .micro_consolidation import (
     load_micro_consolidation_review_receipts,
     prepare_micro_consolidation_request,
 )
-from .read_model import active_mnion_ingress_for_context, get_item, list_topics_for_ingress, materialize_mnion_items_sqlite
+from .read_model import (
+    active_mnion_ingress_for_context,
+    ensure_read_model_fresh,
+    get_item,
+    list_topics_for_ingress,
+    materialize_mnion_items_sqlite,
+)
 from .review_pressure import (
     build_review_pressure_ingress,
     consolidate_review_tool_guidance,
@@ -124,6 +130,15 @@ def _materialize_receipts(receipts: Path, read_model: Path) -> int:
     if not receipts.exists():
         return 0
     return materialize_mnion_items_sqlite(receipts_path=receipts, db_path=read_model)
+
+
+def _ensure_receipts_materialized(receipts: Path, read_model: Path) -> dict[str, Any]:
+    refresh = ensure_read_model_fresh(receipts_path=receipts, db_path=read_model)
+    return {
+        "read_model_status": refresh.after.status,
+        "read_model_refreshed": refresh.refreshed,
+        "materialized_count": refresh.materialized_count if refresh.materialized_count is not None else 0,
+    }
 
 
 def _receipt_covers_selected_ids(receipt: dict[str, Any], selected_ids: list[str]) -> bool:
@@ -1069,12 +1084,12 @@ def create_server(
 
     @server.tool(name="list_topics", description=LIST_TOPICS_DESCRIPTION)
     def list_topics(limit: int = 8) -> dict[str, Any]:
-        materialized_count = _materialize_receipts(receipts, read_model)
+        read_model_state = _ensure_receipts_materialized(receipts, read_model)
         topics = list_topics_for_ingress(db_path=read_model, limit=limit)
         active_ingress = active_mnion_ingress_for_context(db_path=read_model, limit=min(3, max(1, limit)))
         return {
             "ok": True,
-            "materialized_count": materialized_count,
+            **read_model_state,
             "topics": [asdict(topic) for topic in topics],
             "rendered": [topic.render() for topic in topics],
             "active_ingress": asdict(active_ingress) if active_ingress is not None else None,
@@ -1084,11 +1099,12 @@ def create_server(
 
     @server.tool(name="get_item", description=GET_ITEM_DESCRIPTION)
     def retrieve_item(review_id: str) -> dict[str, Any]:
-        _materialize_receipts(receipts, read_model)
+        read_model_state = _ensure_receipts_materialized(receipts, read_model)
         item = get_item(review_id=review_id, db_path=read_model)
         if item is None:
             return {
                 "ok": False,
+                **read_model_state,
                 "review_id": review_id,
                 "error": "mnion item not found",
                 "do_not_infer": [
@@ -1097,6 +1113,7 @@ def create_server(
             }
         return {
             "ok": True,
+            **read_model_state,
             "item": {
                 "review_id": item.review_id,
                 "mnion": asdict(item.mnion),

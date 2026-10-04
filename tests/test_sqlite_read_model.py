@@ -5,8 +5,10 @@ from mnion.read_model import (
     ActiveMnionIngress,
     MnionItem,
     ReadModelFreshness,
+    ReadModelRefreshResult,
     TopicEntry,
     active_mnion_ingress_for_context,
+    ensure_read_model_fresh,
     get_item,
     list_topics_for_ingress,
     materialize_mnion_items_sqlite,
@@ -179,6 +181,41 @@ def test_read_model_freshness_check_does_not_create_meta_table_on_old_database(t
     assert freshness.status == "stale"
     assert freshness.stored_signature is None
     assert meta_row is None
+
+
+def test_ensure_read_model_fresh_repairs_missing_and_stale_model_only_when_needed(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    first_receipt = _receipt("review_trace", "Trace-governed continuity.", 0.91, ["memory_tag_a"])
+    receipts.write_text(__import__("json").dumps(first_receipt) + "\n", encoding="utf-8")
+
+    missing = ensure_read_model_fresh(receipts_path=receipts, db_path=db)
+    fresh = ensure_read_model_fresh(receipts_path=receipts, db_path=db)
+    receipts.write_text(
+        receipts.read_text(encoding="utf-8")
+        + __import__("json").dumps(_receipt("review_next", "Another mnion.", 0.7, ["memory_tag_b"]))
+        + "\n",
+        encoding="utf-8",
+    )
+    stale = ensure_read_model_fresh(receipts_path=receipts, db_path=db)
+
+    assert isinstance(missing, ReadModelRefreshResult)
+    assert missing.before.status == "missing"
+    assert missing.refreshed is True
+    assert missing.materialized_count == 1
+    assert missing.after.status == "fresh"
+    assert get_item(review_id="review_trace", db_path=db) is not None
+
+    assert fresh.before.status == "fresh"
+    assert fresh.refreshed is False
+    assert fresh.materialized_count is None
+    assert fresh.after == fresh.before
+
+    assert stale.before.status == "stale"
+    assert stale.refreshed is True
+    assert stale.materialized_count == 2
+    assert stale.after.status == "fresh"
+    assert get_item(review_id="review_next", db_path=db) is not None
 
 
 def test_list_topics_for_ingress_returns_compact_memory_areas(tmp_path):
