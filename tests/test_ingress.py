@@ -1,9 +1,14 @@
+import sqlite3
+import time
+
 import pytest
 
 from mnion.ingress import (
     IngressCandidate,
+    IngressCandidateLoadResult,
     ProbeDecision,
     assemble_ingress,
+    load_ingress_candidate_source_from_read_model,
     load_ingress_candidates_from_read_model,
     should_probe_metamemory,
 )
@@ -146,9 +151,14 @@ def test_load_ingress_candidates_from_read_model_returns_compact_candidates(tmp_
     )
     materialize_mnion_items_sqlite(receipts_path=receipts, db_path=db)
 
+    result = load_ingress_candidate_source_from_read_model(db_path=db, limit=1)
     candidates = load_ingress_candidates_from_read_model(db_path=db, limit=1)
 
-    assert candidates == [
+    assert isinstance(result, IngressCandidateLoadResult)
+    assert result.source_status == "ok"
+    assert result.reason is None
+    assert result.guards == []
+    assert result.candidates == candidates == [
         IngressCandidate(
             review_id="review_latency",
             topic="Mneme residual / uncategorized",
@@ -157,3 +167,77 @@ def test_load_ingress_candidates_from_read_model_returns_compact_candidates(tmp_
             rationale="fast recall preserves continuity",
         )
     ]
+
+
+def test_read_model_source_status_distinguishes_missing_database_from_empty_memory(tmp_path):
+    db = tmp_path / "missing.sqlite3"
+
+    result = load_ingress_candidate_source_from_read_model(db_path=db)
+
+    assert result == IngressCandidateLoadResult(
+        candidates=[],
+        source_status="unavailable",
+        reason="missing_read_model",
+        guards=["source_unavailable"],
+    )
+    assert not db.exists()
+
+
+def test_empty_existing_read_model_is_available_and_reports_no_familiarity(tmp_path):
+    receipts = tmp_path / "empty_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    materialize_mnion_items_sqlite(receipts_path=receipts, db_path=db)
+
+    loaded = load_ingress_candidate_source_from_read_model(db_path=db)
+    result = assemble_ingress(
+        "Вернемся к latency-safe Mneme ingress",
+        candidates=loaded.candidates,
+        source_status=loaded.source_status,
+    )
+
+    assert loaded == IngressCandidateLoadResult(candidates=[], source_status="ok", reason=None, guards=[])
+    assert result.source_status == "ok"
+    assert result.decision.should_probe is False
+    assert result.decision.reasons == ["no_familiarity"]
+    assert "source_unavailable" not in result.guards
+
+
+def test_locked_read_model_returns_quickly_as_unavailable_source(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    receipts.write_text(
+        '{"id":"review_latency","kind":"micro_consolidation_review","status":"reviewed","created_at":"2026-10-04T00:00:00Z","grouped_ids":["tag_a"],"selected_ids":["tag_a"],"ungrouped_ids":[],"mnion":{"summary":"Mneme ingress must be latency-safe.","valence":0.94,"rationale":null}}\n',
+        encoding="utf-8",
+    )
+    materialize_mnion_items_sqlite(receipts_path=receipts, db_path=db)
+    locker = sqlite3.connect(db)
+    try:
+        locker.execute("BEGIN EXCLUSIVE")
+
+        started = time.monotonic()
+        result = load_ingress_candidate_source_from_read_model(db_path=db, timeout_seconds=0.001)
+        elapsed = time.monotonic() - started
+    finally:
+        locker.rollback()
+        locker.close()
+
+    assert elapsed < 0.5
+    assert result.candidates == []
+    assert result.source_status == "unavailable"
+    assert result.reason == "read_model_unavailable"
+    assert "source_unavailable" in result.guards
+
+
+def test_assemble_ingress_reports_unavailable_source_without_claiming_no_familiarity():
+    result = assemble_ingress(
+        "Вернемся к latency-safe Mneme ingress",
+        candidates=[],
+        source_status="unavailable",
+    )
+
+    assert result.source_status == "unavailable"
+    assert result.decision.should_probe is False
+    assert result.decision.reasons == ["source_unavailable"]
+    assert "no_familiarity" not in result.decision.reasons
+    assert result.routes == []
+    assert "source_unavailable" in result.guards

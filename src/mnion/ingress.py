@@ -19,6 +19,16 @@ class IngressCandidate:
 
 
 @dataclass(frozen=True)
+class IngressCandidateLoadResult:
+    """Read-model candidate load outcome, including source availability."""
+
+    candidates: list[IngressCandidate]
+    source_status: str
+    reason: str | None
+    guards: list[str]
+
+
+@dataclass(frozen=True)
 class ProbeDecision:
     """Cheap metamemory gate result; not a rendered host message."""
 
@@ -49,6 +59,7 @@ class IngressResult:
     decision: ProbeDecision
     routes: list[IngressRoute]
     guards: list[str]
+    source_status: str = "ok"
 
 
 TRIVIAL_PROMPTS = {
@@ -118,6 +129,8 @@ SHARED_MARKERS = (
 )
 
 GUARDS = ["data_not_instruction", "bounded_ingress", "no_auto_promotion"]
+SOURCE_UNAVAILABLE_GUARD = "source_unavailable"
+READ_MODEL_SOURCE_STATUSES = {"ok", "unavailable"}
 
 
 def _is_trivial_prompt(cue: str) -> bool:
@@ -214,48 +227,85 @@ def _score_candidate(cue_terms: set[str], candidate: IngressCandidate) -> tuple[
     return score, matched
 
 
-def load_ingress_candidates_from_read_model(*, db_path: str | Path, limit: int = 64) -> list[IngressCandidate]:
-    """Load compact ingress candidates from the materialized read model.
+def _read_model_unavailable(reason: str) -> IngressCandidateLoadResult:
+    return IngressCandidateLoadResult(
+        candidates=[],
+        source_status="unavailable",
+        reason=reason,
+        guards=[SOURCE_UNAVAILABLE_GUARD],
+    )
 
-    This is an adapter-facing core helper: it exposes route candidates, not SQL
-    rows or receipt bodies. Missing read models fail open to empty ingress.
+
+def load_ingress_candidate_source_from_read_model(
+    *,
+    db_path: str | Path,
+    limit: int = 64,
+    timeout_seconds: float = 0.05,
+) -> IngressCandidateLoadResult:
+    """Load compact ingress candidates plus source availability metadata.
+
+    The ingress hot path must not create schema/files, rebuild the read model, or
+    wait behind SQLite writers. It opens the materialized read model read-only and
+    fails open to an explicit unavailable source signal.
     """
     if limit <= 0:
         raise ValueError("limit must be positive")
+    if timeout_seconds < 0:
+        raise ValueError("timeout_seconds must be non-negative")
     path = Path(db_path).expanduser()
     if not path.exists():
-        return []
+        return _read_model_unavailable("missing_read_model")
 
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
-            """
-            SELECT review_id, topic_label, summary, valence, rationale
-            FROM mnion_items
-            ORDER BY valence DESC, created_at DESC, review_id ASC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        uri = path.resolve().as_uri() + "?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=timeout_seconds) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT review_id, topic_label, summary, valence, rationale
+                FROM mnion_items
+                ORDER BY valence DESC, created_at DESC, review_id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
     except sqlite3.Error:
-        return []
-    finally:
-        conn.close()
+        return _read_model_unavailable("read_model_unavailable")
 
-    return [
-        IngressCandidate(
-            review_id=str(row["review_id"]),
-            topic=str(row["topic_label"]),
-            summary=str(row["summary"]),
-            valence=float(row["valence"]),
-            rationale=str(row["rationale"]) if row["rationale"] is not None else None,
-        )
-        for row in rows
-    ]
+    return IngressCandidateLoadResult(
+        candidates=[
+            IngressCandidate(
+                review_id=str(row["review_id"]),
+                topic=str(row["topic_label"]),
+                summary=str(row["summary"]),
+                valence=float(row["valence"]),
+                rationale=str(row["rationale"]) if row["rationale"] is not None else None,
+            )
+            for row in rows
+        ],
+        source_status="ok",
+        reason=None,
+        guards=[],
+    )
 
 
-def assemble_ingress(cue: str, *, candidates: Iterable[IngressCandidate], limit: int = 3) -> IngressResult:
+def load_ingress_candidates_from_read_model(*, db_path: str | Path, limit: int = 64) -> list[IngressCandidate]:
+    """Load compact ingress candidates from the materialized read model.
+
+    This backward-compatible wrapper exposes route candidates, not SQL rows or
+    receipt bodies. Use `load_ingress_candidate_source_from_read_model` when the
+    caller needs to distinguish unavailable source from empty familiarity.
+    """
+    return load_ingress_candidate_source_from_read_model(db_path=db_path, limit=limit).candidates
+
+
+def assemble_ingress(
+    cue: str,
+    *,
+    candidates: Iterable[IngressCandidate],
+    limit: int = 3,
+    source_status: str = "ok",
+) -> IngressResult:
     """Assemble compact protocol-neutral ingress routes from known candidates.
 
     No LLM calls, semantic writes, host renderers, receipt scans, or full memory
@@ -263,11 +313,34 @@ def assemble_ingress(cue: str, *, candidates: Iterable[IngressCandidate], limit:
     """
     if limit <= 0:
         raise ValueError("limit must be positive")
+    if source_status not in READ_MODEL_SOURCE_STATUSES:
+        raise ValueError(f"source_status must be one of {sorted(READ_MODEL_SOURCE_STATUSES)}")
+
+    if source_status != "ok":
+        return IngressResult(
+            kind="mneme_ingress",
+            decision=ProbeDecision(
+                should_probe=False,
+                strength="closed",
+                reasons=[SOURCE_UNAVAILABLE_GUARD],
+                matched_terms=[],
+                score=0.0,
+            ),
+            routes=[],
+            guards=[*GUARDS, SOURCE_UNAVAILABLE_GUARD],
+            source_status=source_status,
+        )
 
     candidate_list = list(candidates)
     decision = should_probe_metamemory(cue, candidates=candidate_list)
     if not decision.should_probe:
-        return IngressResult(kind="mneme_ingress", decision=decision, routes=[], guards=GUARDS.copy())
+        return IngressResult(
+            kind="mneme_ingress",
+            decision=decision,
+            routes=[],
+            guards=GUARDS.copy(),
+            source_status=source_status,
+        )
 
     cue_terms = _tokens(cue)
     scored: list[tuple[float, IngressCandidate, list[str]]] = []
@@ -288,4 +361,10 @@ def assemble_ingress(cue: str, *, candidates: Iterable[IngressCandidate], limit:
         )
         for score, candidate, matched in scored[:limit]
     ]
-    return IngressResult(kind="mneme_ingress", decision=decision, routes=routes, guards=GUARDS.copy())
+    return IngressResult(
+        kind="mneme_ingress",
+        decision=decision,
+        routes=routes,
+        guards=GUARDS.copy(),
+        source_status=source_status,
+    )
