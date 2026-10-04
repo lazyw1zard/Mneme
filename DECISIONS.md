@@ -141,30 +141,46 @@ small CLI/FFI core used by multiple host adapters
 
 Do not move adapter glue first. Hermes, Claude, Codex, OpenClaw, and MCP layers are host-shaped wrappers; the Rust boundary should protect Mneme's shared core, not freeze a harness-specific form too early.
 
-## 2026-10-04 — Pointer levels require proven addressability
+## 2026-10-04 — Pointer maturity: hints before durable pointers
 
-Do not create a `MemoryPointer` merely because content is important, high-valence, or emotionally salient. Pointer creation should require repeatable addressability: the contour can come back to this thing through a stable route and say "I can return exactly here."
+Do not create a durable `MemoryPointer` merely because content is important, high-valence, or emotionally salient. Durable pointer creation should require successful return / repeatable addressability: the contour has followed the route, resolved the intended item or neighborhood, and can later say "I can return here."
 
-Important content may remain a tag, mnion, review receipt, or candidate without becoming a pointer. A premature pointer is a false promotion: it renames a memory candidate as navigable memory before navigation has been proven.
+This must not become a closed loop where unknown routes can never be discovered. Before proof, Mneme may create weaker route forms whose job is to invite bounded probing, not to claim stable memory.
 
-Mneme should expect several pointer / metapointer levels with different behavior and rights, not one universal `Pointer` class:
+Important content may remain a tag, mnion, review receipt, candidate, hint, or probe route without becoming a durable pointer. A premature durable `MemoryPointer` is a false promotion: it renames a memory candidate as stable navigable memory before navigation has been tested.
+
+Mneme should expect several pointer / metapointer maturity levels with different behavior and rights, not one universal `Pointer` class:
 
 ```text
-route hint / ingress hint
+CandidateRoute / RecallHint
   -> says "there may be something here"
-  -> rights: suggest, not claim durable addressability
+  -> evidence: salience, overlap, cue familiarity, relation candidate
+  -> rights: appear in bounded ingress as a maybe-route
+  -> cannot claim stable addressability
+
+ProbePointer
+  -> says "this route is worth checking"
+  -> evidence: repeated cue match or agent-selected interest
+  -> rights: one bounded get_item/list_related-style probe; gather evidence
+  -> may fail quietly without becoming absence proof
 
 MemoryPointer
-  -> stable route to one reviewed MnionItem or receipt-backed item
-  -> rights: get_item / return-to-this
+  -> says "I successfully returned here"
+  -> evidence: retrieval succeeded; item/route exists; agent accepted usefulness
+  -> rights: normal get_item / return-to-this route
 
 GraphPointer / MetamemoryPointer
-  -> route to a connected event-neighborhood or feeling-of-knowing cluster
+  -> says "I know that I know this area / relation"
+  -> evidence: multiple stable routes or connection receipts
   -> rights: explain_neighborhood / list_related / choose a next retrieval route
+  -> not a direct item substitute
 
 EngramCandidatePointer
-  -> route from repeated high-valence structures toward governed engram review
+  -> says "this pattern may require governed engram review"
+  -> evidence: repeated high-valence structure plus relation/provenance
   -> rights: propose review, never auto-promote
 ```
 
-Each pointer level must define its own evidence, retrieval action, failure behavior, and promotion rights. Do not let a high-level metapointer silently behave like a direct item pointer, and do not let direct item pointers pretend to carry the broader event-neighborhood they came from.
+Later, after the minimal architecture works, pointer strengthening and weakening may behave like synaptic weights: successful returns reinforce a route, stale or failed probes cool it, and repeated useful relations can promote a weaker hint toward a stronger pointer. Do not implement this early; first build the minimal working route/hint/pointer architecture.
+
+Each pointer level must define its own evidence, retrieval action, failure behavior, cooling/reinforcement policy, and promotion rights. Do not let a high-level metapointer silently behave like a direct item pointer, and do not let direct item pointers pretend to carry the broader event-neighborhood they came from.
