@@ -1,12 +1,16 @@
+import sqlite3
+
 from mnion.pointers import pointer_from_mnion_receipt
 from mnion.read_model import (
     ActiveMnionIngress,
     MnionItem,
+    ReadModelFreshness,
     TopicEntry,
     active_mnion_ingress_for_context,
     get_item,
     list_topics_for_ingress,
     materialize_mnion_items_sqlite,
+    read_model_freshness,
     resolve_pointer,
 )
 
@@ -119,6 +123,62 @@ def test_missing_item_returns_none_not_inferred_absence(tmp_path):
     materialize_mnion_items_sqlite(receipts_path=tmp_path / "empty.jsonl", db_path=db)
 
     assert get_item(review_id="missing", db_path=db) is None
+
+
+def test_read_model_freshness_reports_missing_fresh_and_stale(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "mneme.sqlite3"
+    receipt = _receipt("review_trace", "Trace-governed continuity.", 0.91, ["memory_tag_a"])
+    receipts.write_text(__import__("json").dumps(receipt) + "\n", encoding="utf-8")
+
+    missing = read_model_freshness(receipts_path=receipts, db_path=db)
+    materialize_mnion_items_sqlite(receipts_path=receipts, db_path=db)
+    fresh = read_model_freshness(receipts_path=receipts, db_path=db)
+    receipts.write_text(
+        receipts.read_text(encoding="utf-8")
+        + __import__("json").dumps(_receipt("review_next", "Another mnion.", 0.7, ["memory_tag_b"]))
+        + "\n",
+        encoding="utf-8",
+    )
+    stale = read_model_freshness(receipts_path=receipts, db_path=db)
+
+    assert missing == ReadModelFreshness(status="missing", stored_signature=None, current_signature=fresh.current_signature)
+    assert fresh.status == "fresh"
+    assert fresh.stored_signature == fresh.current_signature
+    assert stale.status == "stale"
+    assert stale.stored_signature == fresh.stored_signature
+    assert stale.current_signature != stale.stored_signature
+
+
+def test_read_model_freshness_check_does_not_create_missing_database_or_parent(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db_parent = tmp_path / "nested"
+    db = db_parent / "mneme.sqlite3"
+    receipts.write_text("", encoding="utf-8")
+
+    freshness = read_model_freshness(receipts_path=receipts, db_path=db)
+
+    assert freshness.status == "missing"
+    assert not db.exists()
+    assert not db_parent.exists()
+
+
+def test_read_model_freshness_check_does_not_create_meta_table_on_old_database(tmp_path):
+    receipts = tmp_path / "micro_consolidation_reviews.jsonl"
+    db = tmp_path / "old.sqlite3"
+    receipts.write_text("", encoding="utf-8")
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE mnion_items (review_id TEXT PRIMARY KEY)")
+
+    freshness = read_model_freshness(receipts_path=receipts, db_path=db)
+    with sqlite3.connect(db) as conn:
+        meta_row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'read_model_meta'"
+        ).fetchone()
+
+    assert freshness.status == "stale"
+    assert freshness.stored_signature is None
+    assert meta_row is None
 
 
 def test_list_topics_for_ingress_returns_compact_memory_areas(tmp_path):

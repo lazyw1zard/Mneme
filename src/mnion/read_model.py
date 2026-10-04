@@ -23,6 +23,15 @@ class MnionItem:
 
 
 @dataclass(frozen=True)
+class ReadModelFreshness:
+    """Cheap freshness check for reconstructable SQLite read-model state."""
+
+    status: str
+    stored_signature: str | None
+    current_signature: str
+
+
+@dataclass(frozen=True)
 class TopicEntry:
     """Compact memory-area entry for ingress; enough to choose, not flood."""
 
@@ -64,6 +73,15 @@ CREATE TABLE IF NOT EXISTS mnion_items (
 )
 """
 
+META_SCHEMA = """
+CREATE TABLE IF NOT EXISTS read_model_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+)
+"""
+
+RECEIPTS_SIGNATURE_KEY = "receipts_signature"
+
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     path = Path(db_path).expanduser()
@@ -72,6 +90,42 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute(SCHEMA)
     return conn
+
+
+def _receipts_signature(receipts_path: str | Path) -> str:
+    path = Path(receipts_path).expanduser()
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return "missing:0:0"
+    return f"file:{stat.st_size}:{stat.st_mtime_ns}"
+
+
+def _read_only_uri(path: Path) -> str:
+    return path.resolve().as_uri() + "?mode=ro"
+
+
+def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, timeout_seconds: float = 0.05) -> ReadModelFreshness:
+    """Return whether the SQLite read-model was built from current receipts.
+
+    This check is cheap and read-only. It never creates the database or schema;
+    callers that choose to repair a stale model should materialize explicitly.
+    """
+    current_signature = _receipts_signature(receipts_path)
+    path = Path(db_path).expanduser()
+    if not path.exists():
+        return ReadModelFreshness(status="missing", stored_signature=None, current_signature=current_signature)
+    try:
+        with sqlite3.connect(_read_only_uri(path), uri=True, timeout=timeout_seconds) as conn:
+            row = conn.execute(
+                "SELECT value FROM read_model_meta WHERE key = ?",
+                (RECEIPTS_SIGNATURE_KEY,),
+            ).fetchone()
+    except sqlite3.Error:
+        return ReadModelFreshness(status="stale", stored_signature=None, current_signature=current_signature)
+    stored_signature = str(row[0]) if row is not None else None
+    status = "fresh" if stored_signature == current_signature else "stale"
+    return ReadModelFreshness(status=status, stored_signature=stored_signature, current_signature=current_signature)
 
 
 def _topic_for_summary(summary: str) -> tuple[str, str]:
@@ -130,6 +184,7 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
     """
     receipts = load_micro_consolidation_review_receipts(receipts_path)
     with _connect(db_path) as conn:
+        conn.execute(META_SCHEMA)
         conn.execute("DELETE FROM mnion_items")
         count = 0
         for receipt in receipts:
@@ -158,6 +213,10 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                     ),
                 )
                 count += 1
+        conn.execute(
+            "INSERT OR REPLACE INTO read_model_meta (key, value) VALUES (?, ?)",
+            (RECEIPTS_SIGNATURE_KEY, _receipts_signature(receipts_path)),
+        )
         return count
 
 
