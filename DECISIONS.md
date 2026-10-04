@@ -140,3 +140,31 @@ small CLI/FFI core used by multiple host adapters
 ```
 
 Do not move adapter glue first. Hermes, Claude, Codex, OpenClaw, and MCP layers are host-shaped wrappers; the Rust boundary should protect Mneme's shared core, not freeze a harness-specific form too early.
+
+## 2026-10-04 — Pointer levels require proven addressability
+
+Do not create a `MemoryPointer` merely because content is important, high-valence, or emotionally salient. Pointer creation should require repeatable addressability: the contour can come back to this thing through a stable route and say "I can return exactly here."
+
+Important content may remain a tag, mnion, review receipt, or candidate without becoming a pointer. A premature pointer is a false promotion: it renames a memory candidate as navigable memory before navigation has been proven.
+
+Mneme should expect several pointer / metapointer levels with different behavior and rights, not one universal `Pointer` class:
+
+```text
+route hint / ingress hint
+  -> says "there may be something here"
+  -> rights: suggest, not claim durable addressability
+
+MemoryPointer
+  -> stable route to one reviewed MnionItem or receipt-backed item
+  -> rights: get_item / return-to-this
+
+GraphPointer / MetamemoryPointer
+  -> route to a connected event-neighborhood or feeling-of-knowing cluster
+  -> rights: explain_neighborhood / list_related / choose a next retrieval route
+
+EngramCandidatePointer
+  -> route from repeated high-valence structures toward governed engram review
+  -> rights: propose review, never auto-promote
+```
+
+Each pointer level must define its own evidence, retrieval action, failure behavior, and promotion rights. Do not let a high-level metapointer silently behave like a direct item pointer, and do not let direct item pointers pretend to carry the broader event-neighborhood they came from.
