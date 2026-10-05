@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable
 import re
 import sqlite3
+import unicodedata
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,23 @@ STOPWORDS = {
     "так",
     "тут",
     "там",
+    "про",
+    "при",
+    "без",
+    "вне",
+    "один",
+    "одно",
+    "одна",
+    "мне",
+    "меня",
+    "тебе",
+    "тебя",
+    "его",
+    "её",
+    "ее",
+    "если",
+    "когда",
+    "давай",
 }
 
 SHARED_MARKERS = (
@@ -131,15 +149,56 @@ SHARED_MARKERS = (
 GUARDS = ["data_not_instruction", "bounded_ingress", "no_auto_promotion"]
 SOURCE_UNAVAILABLE_GUARD = "source_unavailable"
 READ_MODEL_SOURCE_STATUSES = {"ok", "unavailable"}
+FALLBACK_TOPIC_LABEL = "Mneme residual / uncategorized"
+LIGHT_SCORE_THRESHOLD = 0.75
+STRONG_SCORE_THRESHOLD = 2.0
+MAX_ROUTE_HINT_CHARS = 180
+RUSSIAN_SUFFIXES = (
+    "ами",
+    "ями",
+    "ого",
+    "ему",
+    "ыми",
+    "ими",
+    "ая",
+    "яя",
+    "ое",
+    "ее",
+    "ые",
+    "ие",
+    "ой",
+    "ей",
+    "ам",
+    "ям",
+    "ах",
+    "ях",
+    "ом",
+    "ем",
+    "ов",
+    "ев",
+    "ую",
+    "юю",
+    "ся",
+    "а",
+    "я",
+    "у",
+    "ю",
+    "ы",
+    "и",
+    "е",
+    "о",
+)
 
 
 def _is_trivial_prompt(cue: str) -> bool:
     text = " ".join(cue.strip().lower().split())
     if not text:
         return True
-    if text.startswith("/"):
-        return True
     return text in TRIVIAL_PROMPTS
+
+
+def _has_cyrillic(token: str) -> bool:
+    return any("а" <= char <= "я" or char == "ё" for char in token)
 
 
 def _normalize_token(token: str) -> str:
@@ -148,24 +207,66 @@ def _normalize_token(token: str) -> str:
         return token[:-3] + "y"
     if len(token) > 4 and token.endswith("s") and not token.endswith("ss"):
         return token[:-1]
+    if _has_cyrillic(token):
+        for suffix in RUSSIAN_SUFFIXES:
+            if token.endswith(suffix):
+                stem = token[: -len(suffix)]
+                if len(stem) >= 4:
+                    return stem
     return token
 
 
 def _tokens(text: str) -> set[str]:
-    raw = re.findall(r"[\w]+", text.replace("-", " ").lower(), flags=re.UNICODE)
-    tokens = {_normalize_token(token) for token in raw}
-    return {token for token in tokens if len(token) > 2 and token not in STOPWORDS}
+    normalized = unicodedata.normalize("NFKC", text.replace("-", " ").lower()).replace("ё", "е")
+    raw = re.findall(r"[\w]+", normalized, flags=re.UNICODE)
+    tokens: set[str] = set()
+    for token in raw:
+        token = token.strip("_")
+        if len(token) <= 2 or token in STOPWORDS:
+            continue
+        normalized_token = _normalize_token(token)
+        if len(normalized_token) <= 2 or normalized_token in STOPWORDS:
+            continue
+        tokens.add(normalized_token)
+    return tokens
+
+
+def _candidate_topic_text(candidate: IngressCandidate) -> str:
+    if " ".join(candidate.topic.strip().split()).lower() == FALLBACK_TOPIC_LABEL.lower():
+        return ""
+    return candidate.topic
 
 
 def _candidate_text(candidate: IngressCandidate) -> str:
-    return " ".join(part for part in [candidate.topic, candidate.summary, candidate.rationale or ""] if part)
+    return " ".join(
+        part
+        for part in [_candidate_topic_text(candidate), candidate.summary, candidate.rationale or ""]
+        if part
+    )
 
 
-def _vocabulary(candidates: Iterable[IngressCandidate]) -> set[str]:
-    vocab: set[str] = set()
-    for candidate in candidates:
-        vocab.update(_tokens(_candidate_text(candidate)))
-    return vocab
+def _score_candidates(
+    cue_terms: set[str], candidates: Iterable[IngressCandidate]
+) -> list[tuple[float, IngressCandidate, list[str]]]:
+    tokenized = [(candidate, _tokens(_candidate_text(candidate))) for candidate in candidates]
+    document_frequency: dict[str, int] = {}
+    for _, terms in tokenized:
+        for term in terms:
+            document_frequency[term] = document_frequency.get(term, 0) + 1
+
+    scored: list[tuple[float, IngressCandidate, list[str]]] = []
+    for candidate, terms in tokenized:
+        matched = sorted(cue_terms & terms)
+        score = sum(1.0 / float(document_frequency[term]) for term in matched)
+        scored.append((score, candidate, matched))
+    return scored
+
+
+def _compact_hint(summary: str) -> str:
+    compact = " ".join(summary.split())
+    if len(compact) <= MAX_ROUTE_HINT_CHARS:
+        return compact
+    return compact[: MAX_ROUTE_HINT_CHARS - 1].rstrip() + "…"
 
 
 def _has_shared_marker(cue: str) -> bool:
@@ -190,10 +291,9 @@ def should_probe_metamemory(cue: str, *, candidates: Iterable[IngressCandidate])
 
     candidate_list = list(candidates)
     cue_terms = _tokens(cue)
-    known_terms = _vocabulary(candidate_list)
-    matched = sorted(cue_terms & known_terms)
-    reasons: list[str] = []
-    score = float(len(matched))
+    scored = _score_candidates(cue_terms, candidate_list)
+    matched = sorted({term for _, _, terms in scored for term in terms})
+    score = max((candidate_score for candidate_score, _, _ in scored), default=0.0)
 
     if not matched:
         return ProbeDecision(
@@ -204,12 +304,21 @@ def should_probe_metamemory(cue: str, *, candidates: Iterable[IngressCandidate])
             score=0.0,
         )
 
-    reasons.append("familiarity_overlap")
+    if score < LIGHT_SCORE_THRESHOLD:
+        return ProbeDecision(
+            should_probe=False,
+            strength="closed",
+            reasons=["weak_familiarity_overlap"],
+            matched_terms=matched,
+            score=score,
+        )
+
+    reasons = ["familiarity_overlap"]
     if _has_shared_marker(cue):
         reasons.append("shared_marker_boost")
         score += 1.0
 
-    strength = "strong" if score >= 3.0 else "light"
+    strength = "strong" if score >= STRONG_SCORE_THRESHOLD else "light"
     return ProbeDecision(
         should_probe=True,
         strength=strength,
@@ -217,14 +326,6 @@ def should_probe_metamemory(cue: str, *, candidates: Iterable[IngressCandidate])
         matched_terms=matched,
         score=score,
     )
-
-
-def _score_candidate(cue_terms: set[str], candidate: IngressCandidate) -> tuple[float, list[str]]:
-    matched = sorted(cue_terms & _tokens(_candidate_text(candidate)))
-    if not matched:
-        return 0.0, []
-    score = float(len(matched)) + max(0.0, min(float(candidate.valence), 1.0)) / 10.0
-    return score, matched
 
 
 def _read_model_unavailable(reason: str) -> IngressCandidateLoadResult:
@@ -344,17 +445,17 @@ def assemble_ingress(
 
     cue_terms = _tokens(cue)
     scored: list[tuple[float, IngressCandidate, list[str]]] = []
-    for candidate in candidate_list:
-        score, matched = _score_candidate(cue_terms, candidate)
-        if score > 0:
-            scored.append((score, candidate, matched))
+    for base_score, candidate, matched in _score_candidates(cue_terms, candidate_list):
+        if base_score >= LIGHT_SCORE_THRESHOLD:
+            route_score = base_score + max(0.0, min(float(candidate.valence), 1.0)) / 10.0
+            scored.append((route_score, candidate, matched))
 
     scored.sort(key=lambda item: (-item[0], -float(item[1].valence), item[1].review_id))
     routes = [
         IngressRoute(
             review_id=candidate.review_id,
             topic=candidate.topic,
-            hint=candidate.summary,
+            hint=_compact_hint(candidate.summary),
             valence=float(candidate.valence),
             score=score,
             reason="matched_terms=" + ",".join(matched),
