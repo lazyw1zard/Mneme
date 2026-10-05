@@ -97,7 +97,18 @@ metamemory familiarity
 
 Do not make successful surface matching a precondition for capture, consolidation, future memory growth, or active memory return. New important material may have no route match yet; that is evidence for the novelty/capture lane, not a reason to discard it. Likewise, a failed surface route is not absence proof.
 
-The next ingress shape should not be a hard yes/no gate. Prefer a bounded candidate surface chosen by memory state first — recent/active reviewed mnions, high-valence or unresolved traces, event-linked neighborhoods, and explicit pointers — then use surface overlap only as one optional route score or tie-breaker. If no surface route fires, the receptor may still expose a tiny active memory map or novelty/capture affordance instead of returning a definitive empty stream.
+The next ingress shape should not be a hard yes/no gate. Prefer a bounded candidate surface chosen by memory state first — recent/active reviewed areas, high-valence or unresolved traces, event-linked neighborhoods, and explicit pointers — then use surface overlap only as one optional route score or tie-breaker. If no surface route fires, the receptor may still expose a tiny active memory map or novelty/capture affordance instead of returning a definitive empty stream.
+
+For spontaneous host ingress, the first object should be a metamemory/topic surface, not preloaded mnion bodies:
+
+```text
+MNEME_METAMEMORY_SURFACE
+  -> "I know that I know these areas"
+  -> compact topic/proto-metapointer routes
+  -> optional review_id -> get_item when the agent chooses details
+```
+
+This keeps the live context from filling with mnion summaries/rationales before the agent has decided they matter. `list_topics` was the prototype of this feeling-of-knowing map: topic area first, selected route second, loaded MnionItem only on demand.
 
 Agentic consolidation may eventually add future-facing route handles (`cue_handles`/aliases/likely future cues), but those handles must stay secondary to event connections and agentic relation review. Do not replace event-based clustering with word-handle clustering. CLI and adapter wording should prefer `surface_route`, `route_signal`, or `route_hint` over broad claims such as true `familiarity` until deeper resonance and pointer layers exist.
 

@@ -60,7 +60,7 @@ def _materialized_read_model(tmp_path):
     receipts.write_text(
         "\n".join(
             [
-                '{"id":"review_a","kind":"micro_consolidation_review","status":"reviewed","created_at":"2026-10-04T00:00:00Z","grouped_ids":["tag_a"],"selected_ids":["tag_a"],"ungrouped_ids":[],"mnion":{"summary":"First reviewed Mneme provider item.","valence":0.90,"rationale":"kept by agent"}}',
+                '{"id":"review_a","kind":"micro_consolidation_review","status":"reviewed","created_at":"2026-10-04T00:00:00Z","grouped_ids":["tag_a"],"selected_ids":["tag_a"],"ungrouped_ids":[],"mnion":{"summary":"Mneme capture layer should expose route maps without loading full provider item bodies.","valence":0.90,"rationale":"kept by agent"}}',
                 '{"id":"review_b","kind":"micro_consolidation_review","status":"reviewed","created_at":"2026-10-04T00:01:00Z","grouped_ids":["tag_b"],"selected_ids":["tag_b"],"ungrouped_ids":[],"mnion":{"summary":"Second reviewed Mneme provider item.","valence":0.80,"rationale":null}}',
             ]
         )
@@ -89,10 +89,11 @@ def test_hermes_provider_registers_and_exposes_no_tools(monkeypatch, tmp_path):
     assert ctx.provider.name == "mneme"
     assert ctx.provider.is_available() is True
     assert ctx.provider.get_tool_schemas() == []
-    assert "MNEME_ACTIVE_SURFACE" in ctx.provider.system_prompt_block()
+    assert "MNEME_METAMEMORY_SURFACE" in ctx.provider.system_prompt_block()
+    assert "map of what Mneme may know" in ctx.provider.system_prompt_block()
 
 
-def test_hermes_provider_prefetch_returns_bounded_active_surface_and_status(monkeypatch, tmp_path):
+def test_hermes_provider_prefetch_returns_bounded_metamemory_surface_and_status(monkeypatch, tmp_path):
     module = _load_provider_module(monkeypatch, tmp_path)
     db = _materialized_read_model(tmp_path)
     provider = module.MnemeMemoryProvider(config={"read_model_path": str(db), "limit": 1})
@@ -100,9 +101,12 @@ def test_hermes_provider_prefetch_returns_bounded_active_surface_and_status(monk
 
     rendered = provider.prefetch("unrelated cue should not gate active surface", session_id="test")
 
-    assert "MNEME_ACTIVE_SURFACE" in rendered
+    assert "MNEME_METAMEMORY_SURFACE" in rendered
+    assert "I know that I know" in rendered
+    assert "Memory-tag capture layer" in rendered
     assert "review_a" in rendered
-    assert "review_b" not in rendered
+    assert "Mneme capture layer should expose route maps" not in rendered
+    assert "kept by agent" not in rendered
     assert "no_familiarity" not in rendered
     assert "surface overlap" not in rendered.lower()
     status = provider.recall_status()
