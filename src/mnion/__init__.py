@@ -23,6 +23,7 @@ from .core import (
     valence_crosses_threshold,
 )
 from .config import MnemeConfig, load_mneme_config
+from .active_surface import ActiveSurfaceResult, load_active_surface_from_read_model
 from .micro_consolidation import Mnion
 from .review_pressure import (
     ReviewPressureDecision,
@@ -41,6 +42,7 @@ __all__ = [
     "MemoryTagCaptureRequest",
     "MemoryTagRecord",
     "MnemeConfig",
+    "ActiveSurfaceResult",
     "Mnion",
     "ActiveMnionIngress",
     "MnionCaptureRequest",
@@ -52,6 +54,7 @@ __all__ = [
     "load_memory_tags",
     "load_mnions",
     "load_mneme_config",
+    "load_active_surface_from_read_model",
     "memory_tag_expired_by_call_age",
     "mneme_call_age",
     "mnion_expired_by_call_age",
