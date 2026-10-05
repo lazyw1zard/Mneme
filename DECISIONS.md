@@ -73,13 +73,13 @@ Future refactors should separate core outcomes from adapter renderers. For examp
 
 ## 2026-10-05 — Surface routing must not become the memory stream
 
-Mneme must not become a perfectly self-repeating structure where only already matching forms can return. A surface-overlap gate is useful as a safe, cheap route hint, but it is a narrow passage over already materialized handles. If it becomes the only path, memory turns into a cage of initial correspondences: novel contour changes and semantically related but differently phrased traces cannot enter or return.
+Mneme must not become a perfectly self-repeating structure where only already matching forms can return. A surface-overlap scorer may be useful as a safe, cheap route hint, but it is a narrow passage over already materialized handles. If it becomes the required entry path, memory turns into a cage of initial correspondences: novel contour changes and semantically related but differently phrased traces cannot enter or return.
 
 Keep these lanes separate:
 
 ```text
 surface routeability
-  -> cheap, model-free, latency-safe retrieval hint
+  -> cheap, model-free, latency-safe route score / sorting helper
   -> asks: "is there an obvious route handle?"
 
 semantic resonance
@@ -95,9 +95,11 @@ metamemory familiarity
   -> asks: "do I know that I know an area/pattern?"
 ```
 
-Do not make successful surface matching a precondition for capture, consolidation, or future memory growth. New important material may have no route match yet; that is evidence for the novelty/capture lane, not a reason to discard it. Likewise, a failed surface route is not absence proof.
+Do not make successful surface matching a precondition for capture, consolidation, future memory growth, or active memory return. New important material may have no route match yet; that is evidence for the novelty/capture lane, not a reason to discard it. Likewise, a failed surface route is not absence proof.
 
-Agentic consolidation should eventually add future-facing route handles (`cue_handles`/aliases/likely future cues) and event connections, so the cheap hot path can stay cheap without freezing Mneme into the vocabulary of its first receipts. CLI and adapter wording should prefer `surface_route`, `route_signal`, or `route_hint` over broad claims such as true `familiarity` until deeper resonance and pointer layers exist.
+The next ingress shape should not be a hard yes/no gate. Prefer a bounded candidate surface chosen by memory state first — recent/active reviewed mnions, high-valence or unresolved traces, event-linked neighborhoods, and explicit pointers — then use surface overlap only as one optional route score or tie-breaker. If no surface route fires, the receptor may still expose a tiny active memory map or novelty/capture affordance instead of returning a definitive empty stream.
+
+Agentic consolidation may eventually add future-facing route handles (`cue_handles`/aliases/likely future cues), but those handles must stay secondary to event connections and agentic relation review. Do not replace event-based clustering with word-handle clustering. CLI and adapter wording should prefer `surface_route`, `route_signal`, or `route_hint` over broad claims such as true `familiarity` until deeper resonance and pointer layers exist.
 
 ## 2026-10-03 — Minimal host verbs and core recall gate
 
@@ -113,21 +115,20 @@ Mneme should not start by implementing automatic transcript retention. Many memo
 
 The recall gate belongs in Mneme core, not in each host adapter. Host filters such as Hermes `is_trivial_prompt` are useful extra protection, but Claude/Codex/OpenClaw may fire prompt hooks on every message. If filtering is host-specific, each body develops a different memory reflex.
 
-The first gate should be a cheap surface-routeability test, not a hand-written keyword list and not a claim about the whole memory stream:
+The first active-return receptor should not be a hard surface gate. Use cheap surface-routeability only as an optional scorer over an already bounded candidate surface, not as the entry condition for memory:
 
 ```text
-current cue
-  -> trivial-prompt filter
-  -> overlap with Mneme-known surface route handles
-       hooks / non-fallback topic labels / mnion summaries / frequent route tokens / future cue handles
-  -> small shared markers only as boosters
-       "we already decided", "why did we choose", "how was it before"
-  -> if routeable enough: assemble_ingress(cue, session)
+current cue + current memory state
+  -> bounded candidate surface
+       recent/active reviewed mnions, high-valence/unresolved traces, event-linked neighborhoods, explicit pointers
+  -> optional surface-route score
+       non-fallback topic labels / mnion summaries / frequent route tokens / future cue handles
+  -> adapter budget chooses whether to show a tiny active map, route hints, or no insertion
 ```
 
-This gate answers only whether an obvious fast route exists. It must not be treated as true familiarity, semantic resonance, novelty detection, or proof that Mneme does not know. `no_familiarity`/closed in the first implementation should be read as "no cheap surface route found".
+The surface score answers only whether an obvious fast route exists. It must not be treated as true familiarity, semantic resonance, novelty detection, or proof that Mneme does not know. `no_familiarity`/closed in the first implementation should be read as "no cheap surface route found", and future APIs should avoid making that the only active-return outcome.
 
-An empty memory yields an empty surface-route vocabulary, so the gate stays quiet. As memories grow, each agent/runtime develops its own route handles while sharing the same code.
+A memory with no surface match may still have relevant active state or novelty pressure. As memories grow, each agent/runtime develops route handles while sharing the same code, but those handles must not replace event-based relation and agentic selection.
 
 For Claude Code, the native adapter should probably be a plugin, not a hand-written hook config: package MCP registration, hooks, and skills together, as popular memory providers do. For Hermes, remember the product constraint: only one external memory provider may be active, so the MCP path must remain fully usable even if a user already uses another Hermes provider.
 
