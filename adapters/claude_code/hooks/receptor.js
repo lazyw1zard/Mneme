@@ -10,7 +10,9 @@
 //
 // The surface is built by surface.py next to this plugin (Python + Mneme core). Per prompt the
 // mod only stats the read model, so the Python start (~0.3 s) is paid on change only.
-// Headless runs (claude -p, scripts) get nothing unless MNEME_RECEPTOR_HEADLESS=1.
+// Only sessions a person is at get it: the REPL, or an app attached to the session (the Desktop
+// Code tab runs through the SDK, so isInteractive is false there, but it attaches as `desktop`).
+// A plain `claude -p` run draws nowhere and gets nothing, unless MNEME_RECEPTOR_HEADLESS=1.
 
 const SURFACE_TIMEOUT_MS = 3000
 const READ_MODEL = 'mneme_read_model.sqlite3'
@@ -18,16 +20,16 @@ const CLAUDE_CODE_NOTE =
   'claude_code: get_item here is the tool mcp__mneme__get_item. This map comes with the first prompt ' +
   'and again only when memory changes; it is not repeated every turn.'
 
-let active = true      // interactive session, or headless with MNEME_RECEPTOR_HEADLESS=1
+let headless = false   // MNEME_RECEPTOR_HEADLESS=1: deliver even where nothing draws (live checks)
+let attended = null    // did the last prompt come with a person at some surface
 let stateDir = ''
 let python = ''
 let shown = null       // the surface now in the context; null = the context does not have it
 let builtMtime = null  // read model mtime the last build saw
 let status = { state: 'нет данных', at: null, topics: 0, reason: null, error: null }
 
-async function resolveConfig($, e) {
-  const headless = await $.env.get('MNEME_RECEPTOR_HEADLESS')
-  active = e.isInteractive !== false || headless === '1'
+async function resolveConfig($) {
+  headless = (await $.env.get('MNEME_RECEPTOR_HEADLESS')) === '1'
   const explicit = await $.env.get('MNEME_STATE_DIR')
   const xdg = await $.env.get('XDG_STATE_HOME')
   const home = (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || ''
@@ -79,13 +81,15 @@ async function surfaceToShow($) {
 
 export function register(on) {
   on('session.start', async ($, e, next) => {
-    await resolveConfig($, e)
+    await resolveConfig($)
     await $.command.register({ name: 'mneme', description: 'Mneme: что receptor показывает агенту и когда', immediate: true })
     return next(e)
   })
 
   on('prompt.submit', async ($, e, next) => {
-    if (!active) return next(e)
+    // asked per prompt: an app may attach after the session started
+    attended = headless || (await $.session.surfaces()).length > 0
+    if (!attended) return next(e)
     const block = await surfaceToShow($)
     if (!block) return next(e)
     return next({ ...e, context: [...(e.context ?? []), block] })
@@ -100,7 +104,7 @@ export function register(on) {
 
   on('command.run', { command: 'mneme' }, async () => {
     const lines = [
-      `receptor: ${active ? 'активен' : 'выключен (headless)'} · состояние: ${status.state}` +
+      `receptor: ${attended === false ? 'молчит: у сессии нет экрана (headless)' : 'активен'} · состояние: ${status.state}` +
         (status.at ? ` · собрано ${status.at.slice(11, 19)}` : '') + ` · тем: ${status.topics}`,
       `state dir: ${stateDir}`,
     ]

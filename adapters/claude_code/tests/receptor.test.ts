@@ -3,10 +3,12 @@ import { expect, mock, test } from 'claude-code/testing'
 const SURFACE_A = 'MNEME_METAMEMORY_SURFACE\ntopics:\n- Area A | routes=review_a'
 const SURFACE_B = 'MNEME_METAMEMORY_SURFACE\ntopics:\n- Area A | routes=review_a\n- Area B | routes=review_b'
 
-// The receptor's world: a read model with an mtime, and surface.py answering with a surface.
-function world(on: any, env: Record<string, string> = { MNEME_STATE_DIR: '/state' }) {
+// The receptor's world: a read model with an mtime, surface.py answering with a surface, and the
+// surfaces the session draws on (`terminal` under the REPL, `desktop` when the app attached, none for -p).
+function world(on: any, env: Record<string, string> = { MNEME_STATE_DIR: '/state' }, surfaces: string[] = ['terminal']) {
   const w = { mtime: 1000, surface: SURFACE_A, status: 'ok', runs: 0, fail: '' as string, statPaths: [] as string[], argv: [] as string[] }
   mock.env(on, env)
+  on('session.surfaces', () => ({ value: surfaces }))
   on('fs.stat', ($: any, e: any) => {
     w.statPaths.push(e.path)
     return { value: { kind: 'file', size: 4096, mtimeMs: w.mtime } }
@@ -104,16 +106,25 @@ test('a broken Python or an unavailable read model never blocks the prompt; /mne
   expect((await $.command.run({ command: 'mneme', args: '' })).text).toMatch(/в контексте агента сейчас:\nMNEME_METAMEMORY_SURFACE/)
 })
 
-test('headless runs get nothing unless MNEME_RECEPTOR_HEADLESS=1', async ($, on) => {
-  const w = world(on)
-  await $.session.start({ surface: 'terminal', isInteractive: false, cwd: '/work' })
-  expect(ctx(await prompt($))).toEqual([])
-  expect(w.runs).toBe(0)
+test('the Desktop Code tab (SDK: isInteractive false, attached as desktop) gets the surface', async ($, on) => {
+  world(on, { MNEME_STATE_DIR: '/state' }, ['desktop'])
+  await $.session.start({ surface: null, isInteractive: false, cwd: '/work' } as any)
+  const entered = await prompt($)
+  expect(ctx(entered).length).toBe(1)
+  expect((await $.command.run({ command: 'mneme', args: '' })).text).toMatch(/^receptor: активен/)
 })
 
-test('headless with MNEME_RECEPTOR_HEADLESS=1 gets the surface (for live checks)', async ($, on) => {
-  world(on, { MNEME_STATE_DIR: '/state', MNEME_RECEPTOR_HEADLESS: '1' })
-  await $.session.start({ surface: 'terminal', isInteractive: false, cwd: '/work' })
+test('a plain -p run (no surface at all) gets nothing unless MNEME_RECEPTOR_HEADLESS=1', async ($, on) => {
+  const w = world(on, { MNEME_STATE_DIR: '/state' }, [])
+  await $.session.start({ surface: null, isInteractive: false, cwd: '/work' } as any)
+  expect(ctx(await prompt($))).toEqual([])
+  expect(w.runs).toBe(0)
+  expect((await $.command.run({ command: 'mneme', args: '' })).text).toMatch(/молчит: у сессии нет экрана/)
+})
+
+test('MNEME_RECEPTOR_HEADLESS=1 delivers even where nothing draws (for live checks)', async ($, on) => {
+  world(on, { MNEME_STATE_DIR: '/state', MNEME_RECEPTOR_HEADLESS: '1' }, [])
+  await $.session.start({ surface: null, isInteractive: false, cwd: '/work' } as any)
   expect(ctx(await prompt($)).length).toBe(1)
 })
 
