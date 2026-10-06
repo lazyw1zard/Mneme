@@ -1,0 +1,4 @@
+{
+  "description": "Mneme receptor: metamemory surface into the agent's context",
+  "modules": ["./receptor.js"]
+}
