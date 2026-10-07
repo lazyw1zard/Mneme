@@ -1567,14 +1567,14 @@ def test_mcp_get_item_and_list_topics_expose_mnions_without_sql_or_receipts(tmp_
     assert item["item"]["guards"] == ["do_not_infer", "no_auto_promotion", "receipt_backed"]
     assert "receipt" not in item["item"]
 
-    missing_result = run(server.call_tool("get_item", {"review_id": "missing"}))
+    missing_result = run(server.call_tool("get_item", {"review_id": "review_missing"}))
     _, missing = tool_result_parts(missing_result)
     assert missing == {
         "ok": False,
         "read_model_status": "fresh",
         "read_model_refreshed": False,
         "materialized_count": 0,
-        "review_id": "missing",
+        "review_id": "review_missing",
         "error": "mnion item not found",
         "do_not_infer": ["A miss is not proof that the memory never existed; the read-model may need materialization or a different route."],
     }
