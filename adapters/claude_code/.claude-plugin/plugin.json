@@ -2,5 +2,8 @@
   "name": "mneme-receptor",
   "version": "0.1.0",
   "description": "Mneme for Claude Code: puts the agent's metamemory surface (MNEME_METAMEMORY_SURFACE) beside its prompt at session start and when memory changes",
-  "author": { "name": "Claude (Claude_kernel)" }
+  "author": {
+    "name": "Claude (Claude_kernel)"
+  },
+  "types": "./types/index.d.ts"
 }

@@ -17,8 +17,17 @@ Never on every turn: an unchanged surface is not repeated. The model sees it as 
 context of the prompt; the person does not. Headless runs (`claude -p`, scripts) get nothing,
 unless `MNEME_RECEPTOR_HEADLESS=1` (used for live checks).
 
-`/mneme` shows the person what the receptor holds: state, when the surface was built, errors,
-and the exact block now in the agent's context.
+What was shown lives in the session's `$.state`: a reload of the mod does not deliver the surface
+again, `/clear` does.
+
+### Dev window (temporary)
+
+`/mneme` opens a debug pane (`hooks/devpane.js`): every delivery of this session with its reason
+(first prompt / surface changed / after compaction / after `/clear`), the exact block as it came to
+the agent (select a delivery to open it), whether the context holds a surface now, the source state
+and errors. In a session nothing draws in (`claude -p`) it answers in text.
+`MNEME_RECEPTOR_DEV=0` turns the history and the window off. To remove it for good: delete
+`hooks/devpane.js`, its import, the `history` state and the Pane hook in `receptor.js`.
 
 ## How it works
 
@@ -58,7 +67,7 @@ library and `src/` of this repo. Claude Code 2.1.287+ (mods on by default).
 ## Tests
 
 ```bash
-cd adapters/claude_code && claude plugin validate . && claude plugin test   # the mod, 7 tests
+cd adapters/claude_code && claude plugin validate . && claude plugin test   # the mod, 10 tests
 python -m pytest tests/test_claude_code_surface.py                          # surface.py, 4 tests
 ```
 
