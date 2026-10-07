@@ -263,6 +263,36 @@ def get_item(*, review_id: str, db_path: str | Path) -> MnionItem | None:
         return _item_from_row(row) if row is not None else None
 
 
+MIN_ROUTE_PREFIX = 6  # hex characters after "review_" before a prefix may stand for a route
+
+
+def resolve_review_id(*, review_id: str, db_path: str | Path) -> tuple[str | None, list[str]]:
+    """Resolve a route the way an agent may have copied it, or say which routes it could mean.
+
+    Agents copy long route ids imperfectly: they drop the ``review_`` prefix, cut the
+    ``:mnion:N`` suffix of a multi-mnion packet, or quote the id. Exact ids win; otherwise
+    the id is normalized and treated like a git short hash: a unique prefix resolves, an
+    ambiguous one (such as a packet id with several mnions) returns the candidates instead
+    of a bare miss. Returns ``(resolved_id, [])`` or ``(None, candidates)``.
+    """
+    raw = str(review_id).strip().strip("`'\"").strip()
+    if not raw:
+        return None, []
+    with _connect(db_path) as conn:
+        ids = [str(row[0]) for row in conn.execute("SELECT review_id FROM mnion_items").fetchall()]
+    if raw in ids:
+        return raw, []
+    normalized = raw if raw.startswith("review_") else "review_" + raw
+    if normalized in ids:
+        return normalized, []
+    if len(normalized.split(":", 1)[0]) - len("review_") < MIN_ROUTE_PREFIX:
+        return None, []
+    matches = sorted(i for i in ids if i.startswith(normalized))
+    if len(matches) == 1:
+        return matches[0], []
+    return None, matches
+
+
 def resolve_pointer(pointer: MemoryPointer, *, db_path: str | Path) -> MnionItem | None:
     """Resolve a pointer through its route.review_id without loading unrelated context."""
     if pointer.route.get("kind") != "micro_consolidation_review":

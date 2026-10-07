@@ -37,6 +37,7 @@ from .read_model import (
     get_item,
     list_topics_for_ingress,
     materialize_mnion_items_sqlite,
+    resolve_review_id,
 )
 from .review_pressure import (
     build_review_pressure_ingress,
@@ -1100,20 +1101,31 @@ def create_server(
     @server.tool(name="get_item", description=GET_ITEM_DESCRIPTION)
     def retrieve_item(review_id: str) -> dict[str, Any]:
         read_model_state = _ensure_receipts_materialized(receipts, read_model)
-        item = get_item(review_id=review_id, db_path=read_model)
+        # forgive an imperfectly copied route: missing "review_", a cut ":mnion:N", a unique prefix
+        resolved, candidates = resolve_review_id(review_id=review_id, db_path=read_model)
+        item = get_item(review_id=resolved, db_path=read_model) if resolved else None
         if item is None:
-            return {
+            miss = {
                 "ok": False,
                 **read_model_state,
                 "review_id": review_id,
-                "error": "mnion item not found",
+                "error": "mnion item not found" if not candidates else "route is ambiguous: choose one of did_you_mean",
                 "do_not_infer": [
                     "A miss is not proof that the memory never existed; the read-model may need materialization or a different route."
                 ],
             }
+            if candidates:
+                previews = []
+                for candidate in candidates[:8]:
+                    found = get_item(review_id=candidate, db_path=read_model)
+                    summary = " ".join(found.mnion.summary.split()) if found else ""
+                    previews.append({"review_id": candidate, "starts": summary[:120]})
+                miss["did_you_mean"] = previews
+            return miss
         return {
             "ok": True,
             **read_model_state,
+            **({"resolved_from": review_id} if resolved != review_id else {}),
             "item": {
                 "review_id": item.review_id,
                 "mnion": asdict(item.mnion),
