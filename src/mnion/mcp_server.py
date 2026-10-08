@@ -35,7 +35,6 @@ from .micro_consolidation import (
 from .read_model import (
     ROUTE_CANDIDATE_LIMIT,
     is_valid_route_query,
-    active_mnion_ingress_for_context,
     ensure_read_model_fresh,
     get_item,
     list_topics_for_ingress,
@@ -1097,13 +1096,11 @@ def create_server(
     def list_topics(limit: int = 8) -> dict[str, Any]:
         read_model_state = _ensure_receipts_materialized(receipts, read_model)
         topics = list_topics_for_ingress(db_path=read_model, limit=limit)
-        active_ingress = active_mnion_ingress_for_context(db_path=read_model, limit=min(3, max(1, limit)))
         return {
             "ok": True,
             **read_model_state,
             "topics": [asdict(topic) for topic in topics],
             "rendered": [topic.render() for topic in topics],
-            "active_ingress": asdict(active_ingress) if active_ingress is not None else None,
             "route": "topic map -> review_id -> get_item -> MnionItem",
             "do_not_infer": _do_not_infer_topic_map(),
         }

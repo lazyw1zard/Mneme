@@ -215,7 +215,7 @@ def test_mcp_retrieval_does_not_serve_stale_read_model_when_receipts_are_missing
     assert missing_topics["read_model_refreshed"] is True
     assert missing_topics["materialized_count"] == 0
     assert missing_topics["topics"] == []
-    assert missing_topics["active_ingress"] is None
+    assert "active_ingress" not in missing_topics
     assert missing_item["ok"] is False
     assert missing_item["read_model_status"] == "fresh"
     assert missing_item["read_model_refreshed"] is False
@@ -1545,11 +1545,8 @@ def test_mcp_get_item_and_list_topics_expose_mnions_without_sql_or_receipts(tmp_
     assert topics["materialized_count"] == 1
     assert topics["topics"][0]["label"] == "Continuity / trace-governed identity"
     assert topics["topics"][0]["top_review_ids"] == ["review_trace"]
-    assert topics["active_ingress"]["kind"] == "mneme_active_mnion_ingress"
-    assert topics["active_ingress"]["items"][0]["review_id"] == "review_trace"
-    assert "MNEME_ACTIVE_MNION_INGRESS" in topics["active_ingress"]["rendered"]
-    assert "Nira continuity is trace-governed" in topics["active_ingress"]["rendered"]
-    assert "receipt_json" not in topics["active_ingress"]["rendered"]
+    assert "active_ingress" not in topics
+    assert "Nira continuity is trace-governed" not in json.dumps(topics)
     assert topics["do_not_infer"] == [
         "This is a compact topic map, not loaded memory content.",
         "Use get_item(review_id) for one selected mnion; do not bulk-load Mneme.",

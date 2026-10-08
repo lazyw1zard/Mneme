@@ -269,3 +269,23 @@ and graph writes are still future work, not shipped by the recall-route fix.
 Do not recreate the separate events field or rewrite old receipts just to follow
 the older proposal above; any later need for addressable events must be justified
 by a demonstrated retrieval or consolidation failure.
+
+## Ingress cleanup — route map only
+
+Remove the withdrawn experimental dictionary gate (`src/mnion/ingress.py`), not
+preserve it as an auxiliary scorer. Its one live dependency was the unavailable
+source guard; that constant now belongs to the surviving active-surface reader.
+
+`list_topics` returns topic metadata and exact routes, not ready mnion bodies.
+The legacy `active_ingress` response field, `ActiveMnionIngress`, and
+`active_mnion_ingress_for_context` Python exports are intentionally removed.
+Host receptors use `load_active_surface_from_read_model`; selected `get_item`
+retrieval, receipt freshness repair on explicit reads, and review-pressure
+`agent_ingress` are unchanged. This is retirement of experimental interfaces,
+not a compatibility wrapper and not removal of the review barrier.
+
+Move hot-path regression coverage onto the surviving reader: bounded lock wait,
+missing/corrupt source handling, read-only snapshots, no receipt repair or body
+preload. Its `ok` source status means an available materialized snapshot, not a
+freshness guarantee; cleanup does not add new stale-source semantics. Claims and
+relations are the next slices and are not implemented by this cleanup.

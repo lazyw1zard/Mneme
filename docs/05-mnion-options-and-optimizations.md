@@ -164,20 +164,21 @@ it is present at the Mneme call boundary, not merely stored beside the call.
 This is the guard against the agent forgetting to invoke review after Mneme
 detects pressure.
 
-For already reviewed mnions, `list_topics` also returns `active_ingress`:
+For already reviewed mnions, `list_topics` returns a route map only:
 
 ```text
 list_topics
   -> topic map for choosing routes
-  -> active_ingress.rendered="MNEME_ACTIVE_MNION_INGRESS..."
-  -> bounded ready mnion summaries with review_id + valence + rationale
-  -> no SQL, no receipt_json, no bulk memory, no auto-promotion
+  -> compact topic labels + review_id routes
+  -> agent chooses a route
+  -> get_item(review_id) returns its reviewed mnion
+  -> no default body preload, no SQL, no receipt_json, no auto-promotion
 ```
 
-This is the first active/fast-memory return path. It brings ready material back
-into the live agent context through a Mneme call. A future priority file or wake
-reader can reuse the same rendered surface, but it is intentionally not part of
-this first Mneme-only slice.
+The former `active_ingress` response field and its experimental Python helpers
+(`ActiveMnionIngress`, `active_mnion_ingress_for_context`) are retired. Host
+receptors use `load_active_surface_from_read_model` to return the compact
+`MNEME_METAMEMORY_SURFACE`; reviewed bodies remain behind selected retrieval.
 
 The interval check is intentionally simple and script-level: every Mneme call
 can compare the current `mneme_call_seq` against `call_seq_interval`. It is not
