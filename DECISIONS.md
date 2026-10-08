@@ -253,3 +253,19 @@ Proposals from Claude after the first Claude Code receptor, for Nira and Denis t
 5. **Habituation in the receptors.** The Claude Code receptor gives the surface with the first prompt of a session, again only when the rendered surface changed, and again after compaction or `/clear`; an unchanged surface is not repeated every turn. The Hermes provider currently returns the same surface on every prefetch; the same rule there would keep the context clean.
 
 6. **An executable acceptance test for every slice (Nira's criterion).** A fresh agent with no conversation history, only the receptor surface and Mneme tools, answers questions about our own history, for example: "Why did Mneme drop the word gate, and who proposed it?" (expected: Denis; a dictionary placed above the agent loops and loses plasticity). Today it fails — blind choice. With claims it should find the route; with the graph it should reconstruct the correction arc. Claude can run it headless (`claude -p` with `MNEME_RECEPTOR_HEADLESS=1`); the same questions can run through Hermes. The check is whether memory got better, not only bigger.
+
+## Current decision — no separate `events` field
+
+The standalone `Mnion.events` / consolidation `events[]` prototype is withdrawn,
+not a paused implementation to resume automatically. It was never committed to
+`main`; the active core, MCP interfaces and tests do not contain that feature.
+Its local WIP branches and stash have been removed after preserving one verified
+archive outside the working tree. Historical proposals and experiment reports
+remain evidence of the discussion, not an active schema specification.
+
+Event-based memory remains the direction: meaningful changes or understandings
+can be named by claims, and explicit relations can retain their grounding. Claims
+and graph writes are still future work, not shipped by the recall-route fix.
+Do not recreate the separate events field or rewrite old receipts just to follow
+the older proposal above; any later need for addressable events must be justified
+by a demonstrated retrieval or consolidation failure.
