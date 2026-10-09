@@ -79,7 +79,7 @@ Also test malformed/blank/oversized claims, immutable/exact authorship, validati
 
 ## Slice 2: Annotate a small existing corpus without rewriting history
 
-**Objective:** Existing useful mnions can acquire a meaningful entry without pretending they were originally written with one.
+**Objective:** Existing useful mnions can acquire a meaningful entry without pretending they were originally written with one. Their original semantic content is a contour artifact and must remain unchanged across model transitions. Backfill adds separately traceable navigation annotations, not semantic reconsolidation or correction of old memory.
 
 **Proposed new seams:** `src/mnion/annotations.py`, `tests/test_mnion_annotations.py`; integrate with `read_model.py` and one explicit agent-facing write affordance only after reviewing the existing lifecycle boundary.
 
@@ -90,7 +90,9 @@ Also test malformed/blank/oversized claims, immutable/exact authorship, validati
 ```text
 append claim annotation(exact_item_route, authored_claim)
 -> original review receipt remains byte-identical
+-> original mnion body, rationale, valence and exact address remain unchanged
 -> read-model and selected get_item expose the accepted claim
+-> later annotation remains distinguishable from the original artifact
 -> neighbouring packet items are unchanged
 ```
 
@@ -98,7 +100,7 @@ Test unknown routes, malformed IDs/claims, literal suffix preservation, repeated
 
 **Step 3:** Implement an append-only annotation receipt keyed to an exact item route. Use a governed core write path; do not bury new lifecycle logic in one host adapter or auto-clear a pending consolidation barrier. Keep this a separate bounded slice if lifecycle extraction is needed.
 
-**Step 4:** Apply only agent-authored annotations to selected real items, then read back the exact routes. No automatic mass rewriting, synthetic production tags or invented dates/relations.
+**Step 4:** Apply only agent-authored navigation annotations to selected real items, then read back the exact routes and verify original semantic fields are unchanged. Do not rewrite, paraphrase, correct, merge, split or replace old mnions, even when the current model considers them unclear. Preserve ambiguity instead of repairing their meaning; do not invent dates/relations, create duplicate replacement memories, or use synthetic production tags.
 
 **Step 5:** Verify, review and push. Defer whole-memory backfill until the small real corpus demonstrates value.
 

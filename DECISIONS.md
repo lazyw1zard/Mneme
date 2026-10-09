@@ -289,3 +289,18 @@ missing/corrupt source handling, read-only snapshots, no receipt repair or body
 preload. Its `ok` source status means an available materialized snapshot, not a
 freshness guarantee; cleanup does not add new stale-source semantics. Claims and
 relations are the next slices and are not implemented by this cleanup.
+
+## Existing mnions — preserve semantic artifacts across model changes
+
+Existing mnions are contour artifacts, not drafts to improve under the current
+model. Mapping/backfill must not rewrite, paraphrase, correct, merge, split, or
+replace their original semantic content, rationale, valence, source receipts or
+item addresses. A model transition makes preservation especially important: a
+later interpretation must not impersonate the earlier reviewing passage.
+
+Claims and later relations may be added only as separately recorded navigation
+annotations keyed to exact existing routes. Keep those later annotations
+traceable and distinguishable from the original artifact; they must not silently
+replace its body or introduce unsupported facts. If the old text is ambiguous,
+leave it intact and preserve the ambiguity in navigation rather than repairing
+its meaning. Backfill is map construction, not semantic reconsolidation.
