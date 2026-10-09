@@ -65,6 +65,21 @@ class MicroConsolidationRequest:
         return self.memory_tags
 
 
+MAX_CLAIM_CHARS = 240
+
+
+def validate_claim(claim: Any) -> None:
+    """Validate optional authored navigation text without changing its wording."""
+    if claim is None:
+        return
+    if not isinstance(claim, str) or not claim.strip():
+        raise ValueError("claim must be a non-blank string or null")
+    if len(claim) > MAX_CLAIM_CHARS:
+        raise ValueError(f"claim must be at most {MAX_CLAIM_CHARS} Unicode characters")
+    if any(char in "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029" for char in claim):
+        raise ValueError("claim must be single-line navigation text")
+
+
 @dataclass(frozen=True)
 class Mnion:
     """Small semantic memory unit produced by agentic micro-consolidation.
@@ -78,6 +93,11 @@ class Mnion:
     summary: str
     valence: float
     rationale: str | None = None
+    # Agent-authored route hint, not evidence; at most 240 Unicode characters.
+    claim: str | None = None
+
+    def __post_init__(self) -> None:
+        validate_claim(self.claim)
 
 
 @dataclass(frozen=True)
@@ -129,6 +149,7 @@ Return one minimal mnion with:
 - valence: 0.0..1.0 review pressure/salience
 - member_ids: memory tag ids used for this mnion (provenance/statistics, not semantic body)
 - rationale: optional brief reason
+- claim: optional agent-authored concrete change or understanding; single-line, at most 240 Unicode characters; a navigation hint, not factual evidence
 Do not write durable memory, kernel notes, or engrams.
 """
 
@@ -137,6 +158,7 @@ EXPECTED_OUTPUT_SCHEMA = {
     "valence": "float between 0.0 and 1.0",
     "member_ids": "list of memory tag ids included in the mnion; stored in receipt statistics",
     "rationale": "optional string explaining the semantic link",
+    "claim": "optional authored concrete change or understanding; single-line string or null, at most 240 Unicode characters; navigation, not evidence",
 }
 
 
@@ -295,10 +317,12 @@ def _mnion_and_grouped_ids_from_agent_response(
             summary=summary,
             valence=valence,
             rationale=str(response["rationale"]).strip() if response.get("rationale") is not None else None,
+            claim=response.get("claim"),
         )
     else:
         raise ValueError("agent response must be a dict or Mnion")
 
+    validate_claim(mnion.claim)
     if not mnion.summary:
         raise ValueError("summary is required")
     if not 0.0 <= mnion.valence <= 1.0:
@@ -413,6 +437,7 @@ def apply_micro_consolidation_review(
     for group in groups:
         if not isinstance(group, MnionGroup):
             raise ValueError("mnion_groups must contain MnionGroup values")
+        validate_claim(group.mnion.claim)
         if not group.mnion.summary.strip():
             raise ValueError("mnion summary is required")
         if not 0.0 <= group.mnion.valence <= 1.0:

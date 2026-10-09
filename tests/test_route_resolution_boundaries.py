@@ -102,7 +102,7 @@ def test_large_ambiguous_hint_is_bounded_and_never_auto_selects(tmp_path):
     db = _db(tmp_path)
     with sqlite3.connect(db) as conn:
         template = conn.execute("SELECT * FROM mnion_items WHERE review_id = ?", (SINGLE,)).fetchone()
-        conn.executemany("INSERT INTO mnion_items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        conn.executemany("INSERT INTO mnion_items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                          [(f"review_abcdef{i:026x}", *template[1:]) for i in range(100)])
     resolved, candidates = resolve_review_id(review_id="abcdef", db_path=db)
     assert resolved is None

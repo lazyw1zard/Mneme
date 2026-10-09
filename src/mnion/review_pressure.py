@@ -55,7 +55,7 @@ def consolidate_review_tool_guidance(selected_ids: list[str]) -> dict[str, Any]:
         "tool": "consolidate_review",
         "purpose": "Record live-agent-authored packet outcomes for the current pending review and lift the capture write-barrier.",
         "required_fields": ["selected_ids", "summary", "valence", "member_ids"],
-        "optional_fields": ["rationale"],
+        "optional_fields": ["rationale", "claim"],
         "packet_mode": {
             "required_fields": ["selected_ids", "mnions"],
             "outcome_fields": ["reviewed_noise_ids", "deferred", "ungrouped_ids"],
@@ -65,7 +65,8 @@ def consolidate_review_tool_guidance(selected_ids: list[str]) -> dict[str, Any]:
         "constraints": [
             "selected_ids must exactly match the pending review packet ids",
             "use legacy single-mnion fields or packet_mode fields, never both",
-            "all summaries and rationales are written by the live agent; Mneme does not auto-generate semantics",
+            "all summaries, rationales, and optional claims are written by the live agent; Mneme does not auto-generate semantics",
+            "claim names a concrete change or understanding: non-blank single-line string or null, at most 240 Unicode characters; navigation, not evidence",
             "member ids and all explicit outcomes must be selected memory_tag ids",
             "deferred outcomes require a non-empty reason and reopen_policy",
             "this does not write kernel notes, engrams, embeddings, or external effects",

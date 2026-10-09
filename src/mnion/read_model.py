@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 import json
 import re
 import sqlite3
 
-from mnion.micro_consolidation import Mnion, load_micro_consolidation_review_receipts
+from .micro_consolidation import Mnion, load_micro_consolidation_review_receipts, validate_claim
 from mnion.pointers import MemoryPointer
 
 
@@ -55,11 +55,16 @@ class TopicEntry:
     top_review_ids: list[str]
     max_valence: float
     freshness: str | None = None
+    route_claims: dict[str, str] = field(default_factory=dict)
 
     def render(self) -> str:
         ids = ",".join(self.top_review_ids[:3])
         freshness = f"; fresh={self.freshness}" if self.freshness else ""
-        return f"- {self.label} [{self.item_count} item(s), valence {self.max_valence:.2f}{freshness}] ids={ids}: {self.abstraction}"
+        claims = "".join(
+            f" | {route} claim={json.dumps(claim, ensure_ascii=False)}"
+            for route, claim in visible_route_claims(self.top_review_ids, self.route_claims).items()
+        )
+        return f"- {self.label} [{self.item_count} item(s), valence {self.max_valence:.2f}{freshness}] ids={ids}: {self.abstraction}{claims}"
 
 
 SCHEMA = """
@@ -68,6 +73,7 @@ CREATE TABLE IF NOT EXISTS mnion_items (
     summary TEXT NOT NULL,
     valence REAL NOT NULL,
     rationale TEXT,
+    claim TEXT,
     grouped_ids_json TEXT NOT NULL,
     created_at TEXT,
     receipt_json TEXT NOT NULL,
@@ -84,6 +90,25 @@ CREATE TABLE IF NOT EXISTS read_model_meta (
 """
 
 RECEIPTS_SIGNATURE_KEY = "receipts_signature"
+
+
+def read_model_has_claim(conn: sqlite3.Connection) -> bool:
+    """Inspect projection schema only; legacy prefetch must never migrate it."""
+    return any(row[1] == "claim" for row in conn.execute("PRAGMA table_info(mnion_items)"))
+
+
+def visible_route_claims(routes: list[str], claims: dict[str, Any]) -> dict[str, str]:
+    """Keep valid authored claims paired only with the three visible routes."""
+    visible: dict[str, str] = {}
+    for route in routes[:3]:
+        claim = claims.get(route)
+        try:
+            validate_claim(claim)
+        except ValueError:
+            continue
+        if claim is not None:
+            visible[route] = claim
+    return visible
 
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
@@ -120,6 +145,7 @@ def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, time
         return ReadModelFreshness(status="missing", stored_signature=None, current_signature=current_signature)
     try:
         with sqlite3.connect(_read_only_uri(path), uri=True, timeout=timeout_seconds) as conn:
+            has_claim = read_model_has_claim(conn)
             row = conn.execute(
                 "SELECT value FROM read_model_meta WHERE key = ?",
                 (RECEIPTS_SIGNATURE_KEY,),
@@ -127,7 +153,7 @@ def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, time
     except sqlite3.Error:
         return ReadModelFreshness(status="stale", stored_signature=None, current_signature=current_signature)
     stored_signature = str(row[0]) if row is not None else None
-    status = "fresh" if stored_signature == current_signature else "stale"
+    status = "fresh" if has_claim and stored_signature == current_signature else "stale"
     return ReadModelFreshness(status=status, stored_signature=stored_signature, current_signature=current_signature)
 
 
@@ -153,6 +179,7 @@ def _mnion_from_payload(payload: dict[str, Any]) -> Mnion:
         summary=str(payload.get("summary", "")).strip(),
         valence=float(payload.get("valence", 0.0)),
         rationale=str(payload["rationale"]).strip() if payload.get("rationale") is not None else None,
+        claim=payload.get("claim"),
     )
 
 
@@ -187,6 +214,10 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
     """
     receipts = load_micro_consolidation_review_receipts(receipts_path)
     with _connect(db_path) as conn:
+        # Keep schema migration, row rebuild, and freshness marker atomic.
+        conn.execute("BEGIN")
+        if not read_model_has_claim(conn):
+            conn.execute("ALTER TABLE mnion_items ADD COLUMN claim TEXT")
         conn.execute(META_SCHEMA)
         conn.execute("DELETE FROM mnion_items")
         count = 0
@@ -200,8 +231,8 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                     """
                     INSERT OR REPLACE INTO mnion_items (
                         review_id, summary, valence, rationale, grouped_ids_json,
-                        created_at, receipt_json, topic_label, topic_abstraction
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, receipt_json, topic_label, topic_abstraction, claim
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         review_id,
@@ -213,6 +244,7 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                         json.dumps(receipt, ensure_ascii=False, sort_keys=True),
                         label,
                         abstraction,
+                        mnion.claim,
                     ),
                 )
                 count += 1
@@ -238,7 +270,8 @@ def _item_from_row(row: sqlite3.Row) -> MnionItem:
     grouped_ids = json.loads(row["grouped_ids_json"])
     return MnionItem(
         review_id=str(row["review_id"]),
-        mnion=Mnion(summary=str(row["summary"]), valence=float(row["valence"]), rationale=row["rationale"]),
+        mnion=Mnion(summary=str(row["summary"]), valence=float(row["valence"]), rationale=row["rationale"],
+                    claim=row["claim"] if "claim" in row.keys() else None),
         grouped_ids=[str(v) for v in grouped_ids],
         created_at=row["created_at"],
         guards=["do_not_infer", "no_auto_promotion", "receipt_backed"],
@@ -338,6 +371,7 @@ def list_topics_for_ingress(*, db_path: str | Path, limit: int = 8) -> list[Topi
     if limit <= 0:
         raise ValueError("limit must be positive")
     with _connect(db_path) as conn:
+        claim_projection = "claim" if read_model_has_claim(conn) else "NULL AS claim"
         rows = conn.execute(
             """
             SELECT
@@ -356,8 +390,8 @@ def list_topics_for_ingress(*, db_path: str | Path, limit: int = 8) -> list[Topi
         topics: list[TopicEntry] = []
         for row in rows:
             id_rows = conn.execute(
-                """
-                SELECT review_id FROM mnion_items
+                f"""
+                SELECT review_id, {claim_projection} FROM mnion_items
                 WHERE topic_label = ?
                 ORDER BY valence DESC, created_at DESC, review_id ASC
                 LIMIT 3
@@ -370,6 +404,10 @@ def list_topics_for_ingress(*, db_path: str | Path, limit: int = 8) -> list[Topi
                     abstraction=str(row["topic_abstraction"]),
                     item_count=int(row["item_count"]),
                     top_review_ids=[str(r["review_id"]) for r in id_rows],
+                    route_claims=visible_route_claims(
+                        [str(r["review_id"]) for r in id_rows],
+                        {str(r["review_id"]): r["claim"] for r in id_rows},
+                    ),
                     max_valence=float(row["max_valence"] or 0.0),
                     freshness=row["freshness"],
                 )

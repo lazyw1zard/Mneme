@@ -88,6 +88,35 @@ Kernel
 - `docs/07-presence-anchor-and-mcp.md` — where the always-visible Mneme Presence Anchor and MCP `list_topics`/`get_item` retrieval paws are placed.
 - `NEXT_STEPS.md` — small reversible slices to continue.
 
+## Optional authored claims
+
+New consolidations may include `claim: str | None = None`: a concrete change or
+understanding authored by the reviewing agent, not a generated summary or topic
+label. For example: `"Denis rejected the dictionary gate because it overruled agent-selected meaning."`
+No literal prefix or particular language is required.
+
+- Python: `Mnion(summary="...", valence=0.8, claim="...")`.
+- MCP legacy mode: add optional top-level `claim` to `consolidate_review`.
+  Packet mode: put it on each `mnions[i]`, never at top level alongside packet outcomes.
+- Omission/null means no claim. Non-null claims must be non-blank strings, at
+  most **240 Unicode characters**, with no embedded line breaks (including
+  Unicode line separators). Invalid claims fail before receipt/latch mutation.
+  Authored wording is preserved exactly: no stripping, coercion, synthesis or
+  read-time semantic normalization.
+- Receipts and `get_item(...).item.mnion` retain the optional claim. Topic maps
+  expose `route_claims`, mapping only the existing visible exact routes to their
+  authored claims, without changing topic grouping, route order or route caps.
+  Hermes and Claude use the same core projection, quoting claims as bounded
+  one-line data, not instructions. Claims are **not evidence for factual
+  answers**: open the selected exact `get_item` route and ground answers in its
+  supported body/evidence.
+- SQLite adds a dedicated nullable `claim` projection on explicit materialization
+  or freshness repair. An old schema is stale even when its receipt signature
+  matches. Read-only prefetch still serves legacy routes without claims; it
+  never migrates, repairs, loads bodies, or derives claims from old summaries.
+  Existing receipts, semantic bodies and exact addresses are not rewritten or
+  backfilled. This slice adds no relations, graphs or legacy annotations.
+
 ## Boundary
 
 Until explicitly changed, this project is a **design/workbench repository**. It must not auto-ingest personal data, session logs, credentials, kernel files, or external conversations. First implementation slices should be local, inspectable, reversible, and candidate-only.

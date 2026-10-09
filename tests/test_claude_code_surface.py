@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,7 @@ SURFACE = Path(__file__).resolve().parents[1] / "adapters" / "claude_code" / "su
 
 
 def _run(*args: str, env_state: Path | None = None) -> dict:
-    env = {"PATH": "", "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", "")}
+    env = {**os.environ, "PATH": "", "SYSTEMROOT": os.environ.get("SYSTEMROOT", "")}
     if env_state is not None:
         env["MNEME_STATE_DIR"] = str(env_state)
     proc = subprocess.run([sys.executable, str(SURFACE), *args], capture_output=True, text=True,
@@ -51,6 +52,47 @@ def test_surface_cli_reads_mneme_state_dir_from_the_environment(tmp_path):
 
     assert payload["source_status"] == "ok"
     assert Path(payload["db_path"]) == state / "mneme_read_model.sqlite3"
+
+
+def test_run_forwards_subprocess_isolation_environment(tmp_path, monkeypatch):
+    isolation = {
+        "HOME": str(tmp_path / "home"),
+        "HERMES_HOME": str(tmp_path / "hermes-home"),
+        "TMPDIR": str(tmp_path / "tmp"),
+        "XDG_CONFIG_HOME": str(tmp_path / "xdg-config"),
+        "XDG_DATA_HOME": str(tmp_path / "xdg-data"),
+        "XDG_CACHE_HOME": str(tmp_path / "xdg-cache"),
+        "XDG_STATE_HOME": str(tmp_path / "xdg-state"),
+        "MNEME_STATE_DIR": str(tmp_path / "inherited-state"),
+        "MNEME_CONFIG": str(tmp_path / "config.toml"),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+    }
+    for key, value in isolation.items():
+        monkeypatch.setenv(key, value)
+    (tmp_path / "config.toml").write_text("", encoding="utf-8")
+    probe = tmp_path / "environment_probe.py"
+    probe.write_text(
+        "import json, os, sys\n"
+        "print(json.dumps({key: os.environ.get(key) for key in sys.argv[1:]}))\n",
+        encoding="utf-8",
+    )
+    override = tmp_path / "override-state"
+    with monkeypatch.context() as patch:
+        patch.setattr(sys.modules[__name__], "SURFACE", probe)
+        inherited = _run(*isolation)
+        overridden = _run(*isolation, env_state=override)
+
+    assert inherited == isolation
+    assert overridden == {**isolation, "MNEME_STATE_DIR": str(override)}
+    explicit = tmp_path / "explicit-state"
+    payload = _run("--state-dir", str(explicit), env_state=override)
+    assert payload["source_status"] == "unavailable"
+    assert payload["reason"] == "missing_read_model"
+    assert Path(payload["db_path"]) == explicit / "mneme_read_model.sqlite3"
+    assert not explicit.exists()
+    assert not override.exists()
+    assert not Path(isolation["MNEME_STATE_DIR"]).exists()
 
 
 def test_surface_cli_reports_a_missing_read_model_without_failing(tmp_path):
