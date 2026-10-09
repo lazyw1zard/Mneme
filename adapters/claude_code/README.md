@@ -67,9 +67,17 @@ library and `src/` of this repo. Claude Code 2.1.287+ (mods on by default).
 ## Tests
 
 ```bash
-cd adapters/claude_code && claude plugin validate . && claude plugin test   # the mod, 10 tests
+# From the repo root: dependency-free Node tests, real modules with a mocked Claude host API.
+node --experimental-vm-modules --test adapters/claude_code/tests/receptor.standalone.test.mjs
+
+# Native Claude Code mod tests (requires the Claude CLI); separate from the standalone tests.
+(cd adapters/claude_code && claude plugin validate . && claude plugin test)
 python -m pytest tests/test_claude_code_surface.py                          # surface.py, 4 tests
 ```
+
+The standalone tests do not use the native Claude SDK/runner and do not prove host integration.
+They exercise retry/cache behavior, optional dev repaint failure, and delivery invariants.
+`tests/receptor.test.ts` runs only through the native Claude Code mod test runner.
 
 ## First live check (2026-10-06)
 

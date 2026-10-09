@@ -90,11 +90,13 @@ async function surfaceToShow($) {
   }
   const shown = await read($, shownAtom)
   if (shown !== null && mtime === (await read($, builtAtom))) return null
-  await update($, builtAtom, () => mtime)
   const surface = await buildSurface($)
   if (!surface) return null
   await setStatus($, { state: surface.source_status, at: new Date().toISOString(), topics: surface.topics, reason: surface.reason, error: null })
-  if (surface.source_status !== 'ok' || !surface.rendered) return null
+  if (surface.source_status !== 'ok') return null
+  // Cache only a successful read, including identical or empty surfaces; failures must retry.
+  await update($, builtAtom, () => mtime)
+  if (!surface.rendered) return null
   if (surface.rendered === shown) return null
 
   const block = surface.rendered + '\n' + CLAUDE_CODE_NOTE
@@ -105,7 +107,8 @@ async function surfaceToShow($) {
   if (dev) {
     await update($, historyAtom, h => [...h, { at: new Date().toISOString(), why, text: block, topics: surface.topics }].slice(-MAX_HISTORY))
     selected = -1
-    $.ui.invalidate('ui.render')
+    // Optional dev repaint must not prevent the block from reaching prompt.submit.
+    try { $.ui.invalidate('ui.render') } catch {}
   }
   return block
 }

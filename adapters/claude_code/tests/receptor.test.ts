@@ -26,6 +26,7 @@ function world(on: any, env: Record<string, string> = { MNEME_STATE_DIR: '/state
     w.argv = e.argv
     if (w.fail === 'start') return { deny: 'cannot start python' }
     if (w.fail === 'exit') return { value: { exitCode: 1, stdout: '', stderr: 'Traceback\nImportError: no mnion' } }
+    if (w.fail === 'json') return { value: { exitCode: 0, stdout: '{invalid JSON', stderr: '' } }
     const payload = { source_status: w.status, reason: w.status === 'ok' ? null : 'missing_read_model', topics: 1, rendered: w.status === 'ok' ? w.surface : '' }
     return { value: { exitCode: 0, stdout: JSON.stringify(payload) + '\n', stderr: '' } }
   })
@@ -76,6 +77,30 @@ test('memory changes: a rebuilt read model with the same surface stays quiet, a 
   expect(ctx(changed)[0]).toMatch(/Area B/)
   expect(ctx(await prompt($))).toEqual([])
 })
+
+for (const failure of ['start', 'exit', 'json', 'unavailable']) {
+  test(`after successful delivery, ${failure} retries a changed surface at unchanged mtime`, async ($, on) => {
+    const w = world(on)
+    await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+    expect(ctx(await prompt($)).length).toBe(1)
+
+    w.mtime = 2000
+    w.surface = SURFACE_B
+    w.fail = failure === 'unavailable' ? '' : failure
+    w.status = failure === 'unavailable' ? 'unavailable' : 'ok'
+    expect(ctx(await prompt($))).toEqual([])
+    expect(ctx(await prompt($))).toEqual([])
+    expect(w.runs).toBe(3)
+
+    w.fail = ''
+    w.status = 'ok'                   // recover without touching the read model
+    const recovered = ctx(await prompt($))
+    expect(recovered.length).toBe(1)
+    expect(recovered[0]).toMatch(/Area B/)
+    expect(ctx(await prompt($))).toEqual([])
+    expect(w.runs).toBe(4)
+  })
+}
 
 test('after compaction or /clear the surface comes again with the next prompt', async ($, on) => {
   const w = world(on)

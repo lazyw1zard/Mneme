@@ -20,6 +20,31 @@
 - Claude's report: `docs/experiments/2026-10-08-claim-recall-probe.md`. Qualitative support for meaningful entries, not controlled proof: conditions exposed three versus seven routes, one model and one run per cell. Chronology from body dates does not establish the usefulness or uselessness of relations.
 - Agentboard cleanup `261005-787b` is already in Denis's `next`; preserve that order. Retired events card `261007-328b` is archived.
 
+## Evidence update — corrected Claude probe, 2026-10-10
+
+The final section of `docs/experiments/2026-10-08-claim-recall-probe.md`
+reports a corrected repeat: A7 exposes all seven routes without claims, and
+all agents run outside any git repository. The original repository working
+directory had leaked recent commits into agent context; therefore the earlier
+R3.5 detail is not evidence of model hallucination in isolation.
+
+Reported single-item results: A7 found 3/4 with 18 route openings; B, with the
+same seven routes plus claims, found 4/4 with four openings. This supports a
+navigation-efficiency hypothesis separately from route-coverage improvement.
+It is still one model, one run per cell and seven mnions; the raw runs are not
+available in this repository, so these remain author-reported measurements,
+not independently reproduced results or evidence at larger scale.
+
+C included one correct answer from a claim without opening its mnion. Keep
+route selection, successful body retrieval and grounded answering as separate
+acceptance criteria. The unchanged arc score does not settle the value of
+relations: chronology reconstruction on this small corpus is not a test of
+preserving authored relation meaning for long-term consolidation.
+
+For the controlled test in Slice 3, isolate automatic repository/context
+injection as well as explicit memory tools. A fresh chat alone is insufficient.
+This evidence update does not implement claims, relations or backfill.
+
 ## Slice 0: Close the existing ingress cleanup
 
 **Objective:** Remove abandoned gate/preload machinery only after distinguishing live imports, public compatibility and actual host behavior.
