@@ -47,7 +47,8 @@ def test_copy_mistakes_agents_make_still_resolve(tmp_path):
     # observed 2026-10-08: a fresh agent passed the id without "review_" (and without the suffix)
     assert resolve_review_id(review_id="43618c0d189940a698eedcf156aabd0a:mnion:2", db_path=db) == (PACKET + ":mnion:2", [])
     assert resolve_review_id(review_id="ea93eed36da643ca868187fb40e533c5", db_path=db) == (SINGLE, [])
-    assert resolve_review_id(review_id="`review_ea93eed3`", db_path=db) == (SINGLE, [])   # quoted short prefix
+    assert resolve_review_id(review_id="review_ea93eed3", db_path=db) == (SINGLE, [])  # documented short hint
+    assert resolve_review_id(review_id="`review_ea93eed3`", db_path=db) == (None, [])  # not a valid route query
 
 
 def test_a_packet_id_without_its_suffix_names_the_candidates(tmp_path):

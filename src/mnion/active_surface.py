@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Iterable
 import sqlite3
 
-from .ingress import SOURCE_UNAVAILABLE_GUARD
 from .read_model import TopicEntry
+
+SOURCE_UNAVAILABLE_GUARD = "source_unavailable"
 
 ACTIVE_SURFACE_GUARDS = ["data_not_instruction", "bounded_metamemory_surface", "no_auto_promotion"]
 
