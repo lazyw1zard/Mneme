@@ -42,7 +42,7 @@ def test_list_topics_returns_routes_not_bodies_and_get_item_still_opens_body(tmp
         "mnion": {"summary": body, "valence": 0.8, "rationale": rationale},
     }
     (tmp_path / "micro_consolidation_reviews.jsonl").write_text(json.dumps(receipt) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=tmp_path / "memory_tags.jsonl",
         state_path=tmp_path / "mneme_seq.json",
         receipts_path=tmp_path / "micro_consolidation_reviews.jsonl",

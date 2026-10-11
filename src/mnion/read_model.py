@@ -8,6 +8,7 @@ import re
 import sqlite3
 
 from .micro_consolidation import Mnion, load_micro_consolidation_review_receipts, validate_claim
+from .annotations import annotation_path_for_receipts, load_claim_annotations
 from mnion.pointers import MemoryPointer
 
 
@@ -21,6 +22,8 @@ class MnionItem:
     created_at: str | None
     guards: list[str]
     receipt: dict[str, Any]
+    original_claim: str | None = None
+    claim_annotation: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,16 @@ CREATE TABLE IF NOT EXISTS read_model_meta (
 """
 
 RECEIPTS_SIGNATURE_KEY = "receipts_signature"
+ANNOTATIONS_SIGNATURE_KEY = "annotations_signature"
+
+
+def _has_annotation_projection(conn: sqlite3.Connection) -> bool:
+    return any(row[1] == "claim_annotation_json" for row in conn.execute("PRAGMA table_info(mnion_items)"))
+
+
+def _annotations_signature(receipts_path: str | Path, annotations_path: str | Path | None) -> str:
+    path = annotation_path_for_receipts(receipts_path, annotations_path)
+    return str(path.resolve()) + ":" + _receipts_signature(path)
 
 
 def read_model_has_claim(conn: sqlite3.Connection) -> bool:
@@ -133,19 +146,24 @@ def _read_only_uri(path: Path) -> str:
     return path.resolve().as_uri() + "?mode=ro"
 
 
-def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, timeout_seconds: float = 0.05) -> ReadModelFreshness:
+def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, annotations_path: str | Path | None = None, timeout_seconds: float = 0.05) -> ReadModelFreshness:
     """Return whether the SQLite read-model was built from current receipts.
 
     This check is cheap and read-only. It never creates the database or schema;
     callers that choose to repair a stale model should materialize explicitly.
     """
     current_signature = _receipts_signature(receipts_path)
+    annotation_signature = _annotations_signature(receipts_path, annotations_path)
     path = Path(db_path).expanduser()
     if not path.exists():
         return ReadModelFreshness(status="missing", stored_signature=None, current_signature=current_signature)
     try:
         with sqlite3.connect(_read_only_uri(path), uri=True, timeout=timeout_seconds) as conn:
             has_claim = read_model_has_claim(conn)
+            has_annotations = _has_annotation_projection(conn)
+            annotation_row = conn.execute(
+                "SELECT value FROM read_model_meta WHERE key = ?", (ANNOTATIONS_SIGNATURE_KEY,)
+            ).fetchone()
             row = conn.execute(
                 "SELECT value FROM read_model_meta WHERE key = ?",
                 (RECEIPTS_SIGNATURE_KEY,),
@@ -153,7 +171,8 @@ def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, time
     except sqlite3.Error:
         return ReadModelFreshness(status="stale", stored_signature=None, current_signature=current_signature)
     stored_signature = str(row[0]) if row is not None else None
-    status = "fresh" if has_claim and stored_signature == current_signature else "stale"
+    status = "fresh" if (has_claim and has_annotations and stored_signature == current_signature
+                         and annotation_row is not None and annotation_row[0] == annotation_signature) else "stale"
     return ReadModelFreshness(status=status, stored_signature=stored_signature, current_signature=current_signature)
 
 
@@ -205,19 +224,26 @@ def _mnion_entries_from_receipt(receipt: dict[str, Any]) -> list[tuple[str, dict
     return [(review_id, mnion_payload, grouped_ids if isinstance(grouped_ids, list) else [])]
 
 
-def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | Path) -> int:
+def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | Path, annotations_path: str | Path | None = None) -> int:
     """Rebuild the SQLite read-model from append-only review receipts.
 
     JSONL receipts remain the audit/source of truth. SQLite is only a compact
     read-model so the agent can call get_item/resolve_pointer instead of scanning
     receipts or touching SQL.
     """
+    # Record signatures before loading: a concurrent source append stays stale.
+    receipt_signature = _receipts_signature(receipts_path)
+    annotation_signature = _annotations_signature(receipts_path, annotations_path)
     receipts = load_micro_consolidation_review_receipts(receipts_path)
+    annotations = load_claim_annotations(annotation_path_for_receipts(receipts_path, annotations_path))
+    latest_annotations = {annotation["route"]: annotation for annotation in annotations}
     with _connect(db_path) as conn:
         # Keep schema migration, row rebuild, and freshness marker atomic.
         conn.execute("BEGIN")
         if not read_model_has_claim(conn):
             conn.execute("ALTER TABLE mnion_items ADD COLUMN claim TEXT")
+        if not _has_annotation_projection(conn):
+            conn.execute("ALTER TABLE mnion_items ADD COLUMN claim_annotation_json TEXT")
         conn.execute(META_SCHEMA)
         conn.execute("DELETE FROM mnion_items")
         count = 0
@@ -227,12 +253,13 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                 if not mnion.summary:
                     continue
                 label, abstraction = _topic_for_summary(mnion.summary)
+                annotation = latest_annotations.get(review_id)
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO mnion_items (
                         review_id, summary, valence, rationale, grouped_ids_json,
-                        created_at, receipt_json, topic_label, topic_abstraction, claim
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, receipt_json, topic_label, topic_abstraction, claim, claim_annotation_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         review_id,
@@ -244,30 +271,37 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                         json.dumps(receipt, ensure_ascii=False, sort_keys=True),
                         label,
                         abstraction,
-                        mnion.claim,
+                        annotation["claim"] if annotation is not None else mnion.claim,
+                        json.dumps(annotation, ensure_ascii=False, sort_keys=True) if annotation is not None else None,
                     ),
                 )
                 count += 1
         conn.execute(
             "INSERT OR REPLACE INTO read_model_meta (key, value) VALUES (?, ?)",
-            (RECEIPTS_SIGNATURE_KEY, _receipts_signature(receipts_path)),
+            (RECEIPTS_SIGNATURE_KEY, receipt_signature),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO read_model_meta (key, value) VALUES (?, ?)",
+            (ANNOTATIONS_SIGNATURE_KEY, annotation_signature),
         )
         return count
 
 
-def ensure_read_model_fresh(*, receipts_path: str | Path, db_path: str | Path) -> ReadModelRefreshResult:
+def ensure_read_model_fresh(*, receipts_path: str | Path, db_path: str | Path, annotations_path: str | Path | None = None) -> ReadModelRefreshResult:
     """Materialize the read-model only when it is missing or stale."""
-    before = read_model_freshness(receipts_path=receipts_path, db_path=db_path)
+    before = read_model_freshness(receipts_path=receipts_path, db_path=db_path, annotations_path=annotations_path)
     if before.status == "fresh":
         return ReadModelRefreshResult(before=before, after=before, materialized_count=None)
-    materialized_count = materialize_mnion_items_sqlite(receipts_path=receipts_path, db_path=db_path)
-    after = read_model_freshness(receipts_path=receipts_path, db_path=db_path)
+    materialized_count = materialize_mnion_items_sqlite(receipts_path=receipts_path, db_path=db_path, annotations_path=annotations_path)
+    after = read_model_freshness(receipts_path=receipts_path, db_path=db_path, annotations_path=annotations_path)
     return ReadModelRefreshResult(before=before, after=after, materialized_count=materialized_count)
 
 
 def _item_from_row(row: sqlite3.Row) -> MnionItem:
     receipt = json.loads(row["receipt_json"])
     grouped_ids = json.loads(row["grouped_ids_json"])
+    original_claim = next((payload.get("claim") for route, payload, _ in _mnion_entries_from_receipt(receipt)
+                           if route == row["review_id"]), None)
     return MnionItem(
         review_id=str(row["review_id"]),
         mnion=Mnion(summary=str(row["summary"]), valence=float(row["valence"]), rationale=row["rationale"],
@@ -276,6 +310,9 @@ def _item_from_row(row: sqlite3.Row) -> MnionItem:
         created_at=row["created_at"],
         guards=["do_not_infer", "no_auto_promotion", "receipt_backed"],
         receipt=receipt,
+        original_claim=original_claim,
+        claim_annotation=(json.loads(row["claim_annotation_json"])
+                          if "claim_annotation_json" in row.keys() and row["claim_annotation_json"] else None),
     )
 
 

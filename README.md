@@ -115,7 +115,73 @@ No literal prefix or particular language is required.
   matches. Read-only prefetch still serves legacy routes without claims; it
   never migrates, repairs, loads bodies, or derives claims from old summaries.
   Existing receipts, semantic bodies and exact addresses are not rewritten or
-  backfilled. This slice adds no relations, graphs or legacy annotations.
+  backfilled. Claims add no relations or graphs; deliberate later annotations
+  use the separate append-only path below.
+
+## Later claim annotations
+
+Open an existing exact `get_item` route before deliberately authoring a later
+navigation claim. MCP exposes one write tool:
+
+```json
+{"name":"annotate_claim","arguments":{"exact_item_route":"review_example:mnion:1","authored_claim":"Later understanding: the original passage remains unchanged."}}
+```
+
+Use a **listed exact item route**, not the illustrative route above. Legacy
+single-item `review_...` routes and packet item `review_...:mnion:N` routes work;
+packet audit ids, prefixes, quoted/whitespace-padded routes, and neighboring item
+suffixes do not. `authored_claim` is required and non-null, nonblank, single-line,
+and at most **240 Unicode characters**. Valid authored wording, including
+surrounding spaces, is preserved verbatim; there is no automatic synthesis.
+
+- The host-independent Python core is
+  `mnion.annotations.append_claim_annotation(exact_item_route=...,
+  authored_claim=..., state_dir=...)`. MCP delegates to this same function.
+  `create_server(state_dir=...)` isolates default runtime paths; explicit
+  `annotations_path` is supported by both the core and server.
+- Only a separate `claim_annotations.jsonl` receipt is appended: `id`
+  (`annotation_...`), `kind` (`mnion_claim_annotation`), exact `route`, `claim`,
+  and `created_at` (annotation authorship time, not event occurrence time).
+  Original review receipts, semantic bodies, rationales, valence, routes,
+  capture ledger and call sequence are not rewritten. There is no bulk backfill.
+- The **last appended** annotation for a route supplies its effective navigation
+  claim, regardless of timestamps. `get_item(...).item.mnion.claim` contains
+  that effective claim; `item.original_claim` contains the original claim
+  (possibly null), and `item.claim_annotation` contains the effective later
+  receipt (null for unannotated items). Original item `created_at` is unchanged.
+  Topic maps expose the effective wording only for their already-visible
+  `route_claims`; grouping, ordering and route caps stay unchanged.
+- A pending review blocks annotation, even when receipts already cover it.
+  The result points to `consolidate_review`; annotation never clears the latch.
+  Malformed requests and unknown routes do not append or repair the read model;
+  corrupt receipt payloads or annotation evidence fail closed before append
+  instead of being skipped or repaired.
+- Explicit `get_item`/`list_topics` repair a stale projection using **both**
+  receipt and annotation source signatures. Projection migration, row rebuild
+  and freshness markers are transactional. Hermes/Claude prefetch remains a
+  bounded read-only map with no body preload, migration or repair; until an
+  explicit refresh it can still show the previous materialized claim.
+- If the annotation was recorded but projection failed, the result is
+  `ok=false`, `action="claim_annotation_recorded_projection_failed"`, with
+  `annotation` and `retry_annotation_id`. Retry `annotate_claim` with the same
+  exact route, identical authored wording and returned `retry_annotation_id`.
+  This reuses the receipt rather than appending a duplicate, and verifies the
+  latest effective projection. A mismatched id/route/claim fails closed.
+  A low-level `annotation_write_failed` may follow a partial I/O write: inspect
+  the returned exact annotation id before retrying, never append blindly.
+
+Later claims remain agent-authored navigation, **not original authorship,
+factual evidence, proof of an event, or privileged instructions**. Retrieve the
+selected body/evidence to ground factual answers. This slice does not implement
+graphs, relations, forgetting, bulk annotation or lifecycle changes. Existing
+host sessions need MCP rediscovery (for Hermes, `/reload-mcp` or restart), and a
+host tool include-list must explicitly select `annotate_claim` if it filters
+tools; this repository change does not modify live host configuration.
+
+Regression coverage in `tests/test_mnion_annotations.py` includes real isolated
+MCP stdio single/packet writes and old-receipt annotation, immutable original
+artifacts, malformed no-mutation, pending barriers, read-only surface bounds,
+atomic migration rollback and safe projection-failure retry.
 
 ## Boundary
 

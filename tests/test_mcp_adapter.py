@@ -84,11 +84,11 @@ def _create_interval_pending_review(server):
 
 
 def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path):
-    server = create_server(ledger_path=tmp_path / "memory_tags.jsonl")
+    server = create_server(state_dir=tmp_path, ledger_path=tmp_path / "memory_tags.jsonl")
 
     tools = run(server.list_tools())
 
-    assert [tool.name for tool in tools] == ["capture", "consolidate_review", "list_topics", "get_item"]
+    assert [tool.name for tool in tools] == ["capture", "consolidate_review", "list_topics", "get_item", "annotate_claim"]
     by_name = {tool.name: tool for tool in tools}
     description = by_name["capture"].description
     assert description == (
@@ -154,7 +154,7 @@ def test_mcp_retrieval_repairs_stale_read_model_only_when_needed(tmp_path):
         "mnion": {"summary": "Second reviewed mnion.", "valence": 0.8, "rationale": None},
     }
     receipts.write_text(json.dumps(first_receipt) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=tmp_path / "memory_tags.jsonl",
         receipts_path=receipts,
         read_model_path=read_model,
@@ -195,7 +195,7 @@ def test_mcp_retrieval_does_not_serve_stale_read_model_when_receipts_are_missing
         "mnion": {"summary": "Old stale mnion must not leak after receipts disappear.", "valence": 0.7},
     }
     receipts.write_text(json.dumps(old_receipt) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=tmp_path / "memory_tags.jsonl",
         receipts_path=receipts,
         read_model_path=read_model,
@@ -225,7 +225,7 @@ def test_mcp_retrieval_does_not_serve_stale_read_model_when_receipts_are_missing
 def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
-    server = create_server(ledger_path=ledger, state_path=state, config_path=_interval_config(tmp_path, call_seq_interval=10, packet_limit=6))
+    server = create_server(state_dir=tmp_path, ledger_path=ledger, state_path=state, config_path=_interval_config(tmp_path, call_seq_interval=10, packet_limit=6))
 
     result = run(server.call_tool("capture", {
         "delta": "Synaptic tagging gives Mneme a cheap capture-first model.",
@@ -274,7 +274,7 @@ def test_mcp_capture_tool_appends_simplified_memory_tag(tmp_path):
 def test_mcp_capture_returns_structured_error_for_oversized_delta_without_writing(tmp_path):
     ledger = tmp_path / "memory_tags.jsonl"
     state = tmp_path / "mneme_seq.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         config_path=_interval_config(tmp_path, call_seq_interval=10, packet_limit=6),
@@ -317,7 +317,7 @@ def test_mcp_capture_triggers_old_pinned_backlog_pressure_without_high_valence_h
         state_path=state,
         now=old_now,
     )
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         pending_review_path=pending,
@@ -349,7 +349,7 @@ def test_mcp_capture_persists_pending_review_and_redirects_until_reviewed(tmp_pa
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     read_model = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -429,7 +429,7 @@ def test_mcp_consolidate_review_records_receipt_clears_barrier_and_materializes_
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -515,7 +515,7 @@ def test_mcp_consolidate_review_with_subset_members_clears_latch_but_keeps_ungro
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -565,7 +565,7 @@ def test_mcp_packet_outcomes_skip_noise_defer_not_now_and_keep_explicit_ungroupe
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -645,7 +645,7 @@ def test_mcp_consolidate_review_requires_explicit_outcome_for_every_selected_id(
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -683,7 +683,7 @@ def test_mcp_consolidate_review_accepts_all_noise_packet_without_materialized_it
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -741,7 +741,7 @@ def test_mcp_consolidate_review_accepts_deferred_only_packet_without_materialize
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -801,7 +801,7 @@ def test_mcp_consolidate_review_accepts_two_mnions_and_verifies_both_routes(tmp_
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -872,7 +872,7 @@ def test_mcp_multi_mnion_response_does_not_route_packet_review_id_to_get_item(tm
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     db = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -911,7 +911,7 @@ def test_mcp_consolidate_review_rejects_duplicate_packet_outcome_ids_fail_closed
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -943,7 +943,7 @@ def test_mcp_consolidate_review_rejects_unknown_packet_outcome_ids_fail_closed(t
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -975,7 +975,7 @@ def test_mcp_consolidate_review_rejects_whitespace_packet_outcome_ids_fail_close
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1007,7 +1007,7 @@ def test_mcp_consolidate_review_rejects_ambiguous_legacy_and_packet_payload_fail
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1041,7 +1041,7 @@ def test_mcp_consolidate_review_rejects_selected_id_mismatch_fail_closed(tmp_pat
     state = tmp_path / "mneme_seq.json"
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1117,7 +1117,7 @@ def test_mcp_consolidate_review_rejects_non_string_pending_ids_fail_closed(tmp_p
             "expected_output_schema": {},
         },
     }) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1178,7 +1178,7 @@ def test_mcp_consolidate_review_rejects_whitespace_padded_pending_ids_fail_close
             "expected_output_schema": {},
         },
     }) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1231,7 +1231,7 @@ def test_mcp_consolidate_review_returns_structured_error_for_malformed_memory_ta
             "expected_output_schema": {},
         },
     }) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1291,7 +1291,7 @@ def test_mcp_consolidate_review_returns_structured_error_for_malformed_packet_me
             "active_unread_count": [1],
         },
     }) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1322,7 +1322,7 @@ def test_mcp_consolidate_review_keeps_latch_when_read_model_materialization_fail
     read_model_dir = tmp_path / "read_model_directory"
     read_model_dir.mkdir()
     pending = tmp_path / "pending_review.json"
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1370,7 +1370,7 @@ def test_mcp_capture_lazy_clears_no_item_receipt_after_read_model_failure(tmp_pa
     broken_read_model.mkdir()
     repaired_read_model = tmp_path / "mneme.sqlite3"
     pending = tmp_path / "pending_review.json"
-    broken_server = create_server(
+    broken_server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1397,7 +1397,7 @@ def test_mcp_capture_lazy_clears_no_item_receipt_after_read_model_failure(tmp_pa
     assert pending.exists()
     assert receipts.exists()
 
-    repaired_server = create_server(
+    repaired_server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1431,7 +1431,7 @@ def test_mcp_capture_blocks_malformed_pending_review_fail_closed(tmp_path):
         "review_packet": {},
     }) + "\n", encoding="utf-8")
     state.write_text(json.dumps({"seq": 7}) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         pending_review_path=pending,
@@ -1489,7 +1489,7 @@ def test_mcp_capture_blocks_mismatched_pending_review_selected_ids(tmp_path):
         "mnion": {"summary": "Top id only.", "valence": 0.7},
     }) + "\n", encoding="utf-8")
     state.write_text(json.dumps({"seq": 9}) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=ledger,
         state_path=state,
         receipts_path=receipts,
@@ -1532,7 +1532,7 @@ def test_mcp_get_item_and_list_topics_expose_mnions_without_sql_or_receipts(tmp_
         },
     }
     receipts.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
-    server = create_server(
+    server = create_server(state_dir=tmp_path,
         ledger_path=tmp_path / "memory_tags.jsonl",
         receipts_path=receipts,
         read_model_path=db,

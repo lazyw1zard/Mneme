@@ -66,7 +66,7 @@ def test_too_short_or_unknown_ids_stay_misses(tmp_path):
 
 def test_get_item_tool_resolves_and_offers_candidates(tmp_path):
     receipts = _receipts(tmp_path)
-    server = create_server(ledger_path=tmp_path / "memory_tags.jsonl", receipts_path=receipts,
+    server = create_server(state_dir=tmp_path, ledger_path=tmp_path / "memory_tags.jsonl", receipts_path=receipts,
                            read_model_path=tmp_path / "mneme.sqlite3")
 
     def call(review_id):

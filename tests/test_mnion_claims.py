@@ -77,7 +77,7 @@ def test_mutated_claim_validation_precedes_receipt_or_state_write(tmp_path, boun
 
 
 def _server(tmp_path):
-    return create_server(ledger_path=tmp_path / 'memory_tags.jsonl',
+    return create_server(state_dir=tmp_path, ledger_path=tmp_path / 'memory_tags.jsonl',
                          state_path=tmp_path / 'mneme_seq.json',
                          receipts_path=tmp_path / 'micro_consolidation_reviews.jsonl',
                          read_model_path=tmp_path / 'mneme_read_model.sqlite3',
@@ -206,7 +206,7 @@ def test_failed_legacy_claim_migration_stays_stale_and_retries_unchanged_source(
     with sqlite3.connect(db) as conn:
         conn.execute('ALTER TABLE mnion_items DROP COLUMN claim')
         columns_before = conn.execute('PRAGMA table_info(mnion_items)').fetchall()
-        assert len(columns_before) == 9
+        assert len(columns_before) == 10
         rows_before = conn.execute('SELECT * FROM mnion_items ORDER BY review_id').fetchall()
         meta_before = conn.execute('SELECT * FROM read_model_meta ORDER BY key').fetchall()
         conn.execute("""

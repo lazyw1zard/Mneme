@@ -22,7 +22,7 @@ def _payload(result: Any) -> dict[str, Any]:
 
 def test_invalid_tool_route_is_rejected_before_read_model_repair(tmp_path):
     db = tmp_path / "missing" / "mneme.sqlite3"
-    server = create_server(ledger_path=tmp_path / "tags.jsonl", receipts_path=tmp_path / "receipts.jsonl",
+    server = create_server(state_dir=tmp_path, ledger_path=tmp_path / "tags.jsonl", receipts_path=tmp_path / "receipts.jsonl",
                            read_model_path=db)
     result = asyncio.run(server.call_tool("get_item", {"review_id": " " + SINGLE}))
     payload = _payload(result)
@@ -33,7 +33,7 @@ def test_invalid_tool_route_is_rejected_before_read_model_repair(tmp_path):
 
 
 def test_retrieval_tool_advertises_hint_grammar_and_evidence_boundary(tmp_path):
-    server = create_server(ledger_path=tmp_path / "tags.jsonl", receipts_path=tmp_path / "receipts.jsonl",
+    server = create_server(state_dir=tmp_path, ledger_path=tmp_path / "tags.jsonl", receipts_path=tmp_path / "receipts.jsonl",
                            read_model_path=tmp_path / "db.sqlite3")
     tools = {tool.name: tool for tool in asyncio.run(server.list_tools())}
     assert "6..32 lowercase hex" in tools["get_item"].description
@@ -47,7 +47,7 @@ def test_storage_error_during_route_resolution_is_structured(tmp_path, monkeypat
     def unavailable(**kwargs):
         raise sqlite3.OperationalError("database is locked")
     monkeypatch.setattr(adapter, "resolve_review_id", unavailable)
-    server = create_server(ledger_path=tmp_path / "tags.jsonl", receipts_path=_receipts(tmp_path),
+    server = create_server(state_dir=tmp_path, ledger_path=tmp_path / "tags.jsonl", receipts_path=_receipts(tmp_path),
                            read_model_path=tmp_path / "db.sqlite3")
     result = asyncio.run(server.call_tool("get_item", {"review_id": SINGLE}))
     payload = _payload(result)
@@ -102,14 +102,14 @@ def test_large_ambiguous_hint_is_bounded_and_never_auto_selects(tmp_path):
     db = _db(tmp_path)
     with sqlite3.connect(db) as conn:
         template = conn.execute("SELECT * FROM mnion_items WHERE review_id = ?", (SINGLE,)).fetchone()
-        conn.executemany("INSERT INTO mnion_items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        conn.executemany("INSERT INTO mnion_items VALUES (" + ",".join("?" for _ in template) + ")",
                          [(f"review_abcdef{i:026x}", *template[1:]) for i in range(100)])
     resolved, candidates = resolve_review_id(review_id="abcdef", db_path=db)
     assert resolved is None
     assert len(candidates) == 9  # eight visible options plus a witness that more exist
     receipts = tmp_path / "micro_consolidation_reviews.jsonl"
     # Preserve this materialized model during the explicit read by retaining its source marker.
-    server = create_server(ledger_path=tmp_path / "tags.jsonl", receipts_path=receipts,
+    server = create_server(state_dir=tmp_path, ledger_path=tmp_path / "tags.jsonl", receipts_path=receipts,
                            read_model_path=db)
     result = asyncio.run(server.call_tool("get_item", {"review_id": "abcdef"}))
     payload = _payload(result)
