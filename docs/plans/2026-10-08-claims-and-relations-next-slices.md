@@ -131,6 +131,19 @@ Test unknown routes, malformed IDs/claims, literal suffix preservation, repeated
 
 ## Slice 3: Controlled fresh-agent recall check
 
+**Status:** Completed; see the public aggregate report in
+`docs/experiments/claim-recall-controlled/RESULTS.md`. The working experimental
+harness, original memory corpus, raw traces and detailed reviews are privately
+preserved, not public product fixtures. The corrected real run completed all
+sixteen trials: A 54 opens/62 responses, B 10 opens/18 responses. Both reached
+expected evidence in 7/7 eligible cases. Independent semantic review: A six
+supported/two partial, B eight supported. Two added A details lacked historical
+relationship/address grounding. The transport-defective first run is separately
+preserved; it was not selectively repaired. The private artifact passed 424
+Python tests (89 focused), 14 Node tests and independent spec/quality gates.
+This is a bounded minimal tool-use-loop experiment, not native-host validation
+or proof of general efficacy/long-term consolidation. Old memory was unchanged.
+
 **Objective:** Distinguish a useful entry from an apparently fluent answer based only on a label.
 
 **Proposed artifacts:** `docs/experiments/claim-recall-controlled/` containing the fixed questions, selected exact routes, expected supported facts, map variants and an executable host runner chosen from actually available tooling. Do not fabricate missing Claude probe files or model responses.
