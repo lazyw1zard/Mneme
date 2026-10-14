@@ -1,6 +1,6 @@
 # Claims and relations — next slices implementation plan
 
-> **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
+> **Authorship:** The primary agent designs and implements important architectural code personally. Delegate independent read-only review and fault reproduction, not central implementation or fixes.
 
 **Goal:** Make a memory route intelligible before opening it, then preserve agent-authored relations well enough for event-based long-term consolidation.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python dataclasses, append-only review/annotation receipts, reconstructable SQLite read-model, MCP, external Hermes MemoryProvider, pytest, disposable MCP stdio tests.
 
-**Status:** Ordered slices, not authorization to execute all stages at once. This turn plans work; no production implementation is changed. Before a later slice begins, inspect its exact call sites and refine its implementation-level tests. API sketches below are proposed additions, not currently available functions.
+**Status:** Historical ordered plan, not authorization to execute all stages at once. Claims, later annotations, controlled claim recall and the minimal relation persistence/return slice are completed as indicated below. Remaining model-backed relations evaluation and long-term consolidation are later work; API sketches describe their original planning status rather than overriding current accepted code.
 
 ## Verified starting point
 
@@ -157,6 +157,8 @@ or proof of general efficacy/long-term consolidation. Old memory was unchanged.
 **Step 4:** Proceed only when failures are localized and the navigation layer works in a bounded real test. Pytest and schema checks are necessary but do not replace this semantic evaluation.
 
 ## Slice 4: Optional relations, then one long-term consolidation experiment
+
+**Minimal closure completed:** Reviewed implementation at `b7d310e5d173477785d862ad42b657ddd309d7e8`; 451 Python and 14 standalone Node tests passed. A deliberate real MCP pilot recorded one relation and returned a two-node/one-edge view with unchanged originals and duplicate-free retry. See [verified aggregate results](../experiments/authored-connections/RESULTS.md). Steps 4–5 below remain future evaluation/consolidation work; no engram candidate was created.
 
 **Objective:** I can retrieve how one trace continued or corrected another without reconstructing previously authored topology from scratch.
 
