@@ -117,7 +117,8 @@ def append_claim_annotation(*, exact_item_route: Any, authored_claim: Any,
     # SQLite owns auxiliary files for both the configured name and resolved DB
     # target. Protect their destination aliases before any append/index repair.
     protected = [receipts, db, pending, root / "memory_tags.jsonl", root / "mneme_seq.json",
-                 root / "config.toml", default_config_path(),
+                 root / "config.toml", root / "mnion_connections.jsonl",
+                 receipts.parent / "mnion_connections.jsonl", default_config_path(),
                  *(Path(str(base) + suffix) for base in (db, db.resolve())
                    for suffix in ("-journal", "-wal", "-shm")),
                  *(Path(path).expanduser() for path in protected_paths)]

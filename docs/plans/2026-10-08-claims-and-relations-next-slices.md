@@ -162,7 +162,7 @@ or proof of general efficacy/long-term consolidation. Old memory was unchanged.
 
 **Files:** Choose a small `src/mnion/connections.py` core receipt/projection seam, `tests/test_mnion_connections.py`, and integration points in `micro_consolidation.py`, `read_model.py`, `mcp_server.py` after the prior slices. These are proposed files, not existing APIs.
 
-**Step 1:** RED tests for an optional connection: exact source/target item routes, `continues | corrects | follows_from`, and authored `relation_summary`. Reject unknown/malformed/cross-packet targets before applying state. A missing relation must not break a usable claim.
+**Step 1:** RED tests for an optional connection: exact source/target item routes, `continues | corrects | follows_from`, and authored `relation_summary`. Reject unknown/malformed/audit-only targets before applying state; allow intentional exact cross-receipt links. A missing relation must not break a usable claim.
 
 **Step 2:** Expose only a bounded set of neighbouring route/claim entries during review, not the whole graph. Allow zero relations. Keep uncertain grounding in the explanation; `follows_from` is not automatically demonstrated causality. Raw capture `linked_ids` are not ready item routes.
 

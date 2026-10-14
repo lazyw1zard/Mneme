@@ -88,7 +88,7 @@ def test_mcp_server_exposes_memory_tag_and_mnion_retrieval_affordances(tmp_path)
 
     tools = run(server.list_tools())
 
-    assert [tool.name for tool in tools] == ["capture", "consolidate_review", "list_topics", "get_item", "annotate_claim"]
+    assert [tool.name for tool in tools] == ["capture", "consolidate_review", "list_topics", "get_item", "annotate_claim", "connect_items", "get_neighborhood"]
     by_name = {tool.name: tool for tool in tools}
     description = by_name["capture"].description
     assert description == (

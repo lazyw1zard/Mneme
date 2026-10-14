@@ -172,8 +172,8 @@ surrounding spaces, is preserved verbatim; there is no automatic synthesis.
 
 Later claims remain agent-authored navigation, **not original authorship,
 factual evidence, proof of an event, or privileged instructions**. Retrieve the
-selected body/evidence to ground factual answers. This slice does not implement
-graphs, relations, forgetting, bulk annotation or lifecycle changes. Existing
+selected body/evidence to ground factual answers. Claim annotations alone do not implement
+relations, forgetting, bulk annotation or lifecycle changes. Existing
 host sessions need MCP rediscovery (for Hermes, `/reload-mcp` or restart), and a
 host tool include-list must explicitly select `annotate_claim` if it filters
 tools; this repository change does not modify live host configuration.
@@ -182,6 +182,48 @@ Regression coverage in `tests/test_mnion_annotations.py` includes real isolated
 MCP stdio single/packet writes and old-receipt annotation, immutable original
 artifacts, malformed no-mutation, pending barriers, read-only surface bounds,
 atomic migration rollback and safe projection-failure retry.
+
+## Authored connections and bounded neighborhoods
+
+Two deliberate tools add relationships without another memory tier:
+
+- `connect_items(source_review_id, target_review_id, relation_kind, relation_summary,
+  retry_connection_id=None)`: source **continues / corrects / follows_from target**.
+  Open both original bodies before writing. The two exact materializable routes
+  may belong to different review receipts; hints, packet audit IDs and self-links
+  are rejected. The literal authored explanation (up to 1200 Unicode characters)
+  retains its grounds and uncertainty, not just thematic similarity.
+- `get_neighborhood(exact_item_route, depth=1, limit=4)`: a bidirectional view with
+  depth 1..2 and a **total** budget of 1..8 connections. `nodes` contains only
+  route/claim entries; `connections` retains original directed meaning and
+  recording provenance. Open selected `get_item` bodies to ground factual answers.
+  `has_more` reports witnessed truncation, not a guessed total graph size.
+
+The sole new semantic object is `MnionConnection`. Its separate append-only
+`mnion_connections.jsonl` is projected into the existing SQLite file with
+directional indexes and an atomic freshness marker. A neighborhood is computed
+on reading, never persisted as an arc/episode/cluster object. Native prefetch and
+normal item/topic retrieval do not automatically traverse or preload relations.
+Explicit stale neighborhood reads may reconstruct projections; fresh reads are
+read-only and use limited indexed ranges, including on high-degree nodes.
+
+Connection authorship preserves original bodies, claims, rationale, valence,
+source receipts, capture ledger and call sequence. Pending review blocks writes;
+connections never clear its latch. Actual source/index/config/overlay paths and
+SQLite-owned auxiliary aliases are protected. Known corrupt evidence fails
+closed before append. Successful writes verify both indexed and durable evidence.
+`connection_recorded_projection_failed` returns `retry_connection_id`: retry the
+same exact authored fields and ID, never blindly append. An I/O failure may
+follow a partial append and requires inspection. Identical sequential authorship
+reuses a recorded connection; multi-process writer locking is not claimed.
+
+These are authored interpretations, not demonstrated causality, event occurrence
+times, automatic supersession, a new pointer layer or automatic engram creation.
+Hosts with tool filters must select `connect_items` and `get_neighborhood` and
+reload discovery; this code does not silently modify live host configuration.
+See [the minimal connection contract](docs/plans/authored-connections.md). Real
+memory corpora and practical traces stay private; public tests use neutral,
+disposable fixtures and actual isolated MCP stdio transport.
 
 ## Boundary
 

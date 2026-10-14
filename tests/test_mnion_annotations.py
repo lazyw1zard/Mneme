@@ -226,7 +226,7 @@ def test_mcp_explicit_annotation_tool_and_selected_item_provenance(tmp_path):
     _state(tmp_path)
     server = create_server(state_dir=tmp_path, config_path=tmp_path / 'config.toml')
     tools = {tool.name: tool for tool in run(server.list_tools())}
-    assert set(tools) == {'capture', 'consolidate_review', 'list_topics', 'get_item', 'annotate_claim'}
+    assert set(tools) == {'capture', 'consolidate_review', 'list_topics', 'get_item', 'annotate_claim', 'connect_items', 'get_neighborhood'}
     schema = input_schema(tools['annotate_claim'])
     assert set(schema['required']) == {'exact_item_route', 'authored_claim'}
     assert 'later' in tools['annotate_claim'].description.lower()
@@ -609,7 +609,7 @@ def test_real_mcp_stdio_annotation_of_old_receipts(tmp_path, packet):
                 await session.initialize()
                 tools = {tool.name for tool in (await session.list_tools()).tools}
                 assert tools == {'capture', 'consolidate_review', 'get_item',
-                                 'list_topics', 'annotate_claim'}
+                                 'list_topics', 'annotate_claim', 'connect_items', 'get_neighborhood'}
                 async def call(name, **arguments):
                     response = await session.call_tool(name, arguments)
                     assert not getattr(response, 'isError', getattr(response, 'is_error', False))
@@ -643,6 +643,6 @@ def test_real_mcp_stdio_annotation_of_old_receipts(tmp_path, packet):
                     assert neighbor['mnion']['claim'] == 'Neighbor entry.'
                     assert neighbor['claim_annotation'] is None
                 print('OLD RECEIPT MCP STDIO:', 'packet' if packet else 'single',
-                      'tools=5 items=' + str(2 if packet else 1),
+                      'tools=7 items=' + str(2 if packet else 1),
                       'annotations=1 rejected=4 originals=unchanged')
     asyncio.run(smoke())

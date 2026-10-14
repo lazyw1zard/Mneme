@@ -24,6 +24,7 @@ from .core import (
 )
 from .config import default_config_path, load_mneme_config
 from .annotations import append_claim_annotation
+from .connections import append_connection, get_neighborhood
 from .micro_consolidation import (
     MAX_CLAIM_CHARS,
     DeferredTagOutcome,
@@ -610,6 +611,7 @@ def create_server(
     *,
     state_dir: str | Path | None = None,
     annotations_path: str | Path | None = None,
+    connections_path: str | Path | None = None,
     ledger_path: str | Path | None = None,
     state_path: str | Path | None = None,
     receipts_path: str | Path | None = None,
@@ -628,6 +630,7 @@ def create_server(
     receipts = Path(receipts_path).expanduser() if receipts_path is not None else state_dir / "micro_consolidation_reviews.jsonl"
     read_model = Path(read_model_path).expanduser() if read_model_path is not None else state_dir / "mneme_read_model.sqlite3"
     annotations = Path(annotations_path).expanduser() if annotations_path is not None else state_dir / "claim_annotations.jsonl"
+    connections = Path(connections_path).expanduser() if connections_path is not None else receipts.parent / "mnion_connections.jsonl"
     pending_review = (
         Path(pending_review_path).expanduser()
         if pending_review_path is not None
@@ -1215,8 +1218,44 @@ def create_server(
             retry_annotation_id=retry_annotation_id, state_dir=state_dir,
             receipts_path=receipts, annotations_path=annotations, db_path=read_model,
             pending_review_path=pending_review,
-            protected_paths=(ledger, state, config_artifact, receipts, read_model, pending_review),
+            protected_paths=(ledger, state, config_artifact, receipts, read_model, pending_review, connections),
         )
+
+    @server.tool(name="connect_items", description=(
+        "Record one explicit agent-authored relation between two distinct exact get_item routes. "
+        "Open both original bodies first; source corrects/continues/follows_from target. "
+        "relation_summary states the actual meaning, grounds and uncertainty, not thematic similarity. "
+        "Never rewrites originals or proves causality; pending review must be closed with consolidate_review first. "
+        "After a recorded projection failure retry the same authorship with retry_connection_id."
+    ))
+    def connect_items(
+        source_review_id: Annotated[Any, Field(json_schema_extra={"type": "string", "maxLength": 256})],
+        target_review_id: Annotated[Any, Field(json_schema_extra={"type": "string", "maxLength": 256})],
+        relation_kind: Annotated[Any, Field(json_schema_extra={"type": "string", "enum": ["continues", "corrects", "follows_from"]})],
+        relation_summary: Annotated[Any, Field(json_schema_extra={"type": "string", "maxLength": 1200})],
+        retry_connection_id: Annotated[Any, Field(json_schema_extra={"anyOf": [{"type": "string"}, {"type": "null"}]})] = None,
+    ) -> dict[str, Any]:
+        return append_connection(source_review_id=source_review_id, target_review_id=target_review_id,
+            relation_kind=relation_kind, relation_summary=relation_summary, retry_connection_id=retry_connection_id,
+            state_dir=state_dir, receipts_path=receipts, connections_path=connections,
+            annotations_path=annotations, db_path=read_model, pending_review_path=pending_review,
+            protected_paths=(ledger, state, config_artifact))
+
+    @server.tool(name="get_neighborhood", description=(
+        "Read a small bidirectional connected fragment around one literal exact item route. "
+        "Returns route/claim nodes and authored connections, not memory bodies or a stored arc object. "
+        "depth=1..2, limit=1..8 total connections; has_more marks witnessed truncation, not a total count. "
+        "Open selected get_item bodies before factual answers; links are authored interpretations."
+    ))
+    def read_neighborhood(
+        exact_item_route: Annotated[Any, Field(json_schema_extra={"type": "string", "maxLength": 256})],
+        depth: Annotated[Any, Field(json_schema_extra={"type": "integer", "minimum": 1, "maximum": 2})] = 1,
+        limit: Annotated[Any, Field(json_schema_extra={"type": "integer", "minimum": 1, "maximum": 8})] = 4,
+    ) -> dict[str, Any]:
+        return get_neighborhood(exact_item_route=exact_item_route, depth=depth, limit=limit,
+            state_dir=state_dir, receipts_path=receipts, connections_path=connections,
+            annotations_path=annotations, db_path=read_model, pending_review_path=pending_review,
+            protected_paths=(ledger, state, config_artifact))
 
     return server
 
