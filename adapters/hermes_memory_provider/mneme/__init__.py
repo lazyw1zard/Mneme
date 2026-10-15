@@ -113,8 +113,10 @@ class MnemeMemoryProvider(MemoryProvider):
         try:
             _ensure_mneme_importable()
             from mnion.active_surface import load_active_surface_from_read_model
+            from mnion.connected_surface import routes_in_cue
 
-            result = load_active_surface_from_read_model(db_path=read_model_path, limit=self._limit)
+            result = load_active_surface_from_read_model(db_path=read_model_path, limit=self._limit,
+                                                        anchor_routes=routes_in_cue(query))
         except Exception as exc:
             logger.debug("Mneme prefetch failed: %s", exc)
             return ""

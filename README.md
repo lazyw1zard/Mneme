@@ -77,6 +77,32 @@ Kernel
   = explicit semantic spine; Mneme points to it and proposes updates, not replaces it
 ```
 
+## Connected memory entrance (bounded first slice)
+
+`load_active_surface_from_read_model` retains the compact topic/claim map and
+adds at most one `connected_entrance` from the existing authored adjacency index.
+It carries two exact route/claim nodes, the directed relation and id, a named
+220-character summary preview, and a `get_neighborhood` action. Full endpoint
+bodies still require selected `get_item` calls. Nothing stores a separate arc.
+
+Selection is deliberately modest and explicit:
+
+- An exact item address in the current Hermes cue prefers a connection touching
+  that route (`why_visible=explicit_route_in_cue`, up to three literal anchors).
+- Otherwise the newest eligible projected connection in receipt order provides
+  a memory-state reminder (`why_visible=recent_authored_connection`).
+- Candidate windows are fixed (four per indexed range); this is not exhaustive
+  graph search, semantic relevance, an unresolved-thread detector or a rotation
+  policy. Ordinary text does not gate the memory return. No edges are inferred.
+
+`connections_status=ok|unavailable` describes only the optional projected graph
+read. Missing/old/corrupt adjacency preserves the topic map; it is not proof that
+memory lacks connections. Neither graph nor topic snapshot promises freshness.
+Ingress never repairs indexes, scans receipts, calls a model, or loads bodies.
+
+See [the slice contract](docs/plans/connected-ingress.md). The withdrawn
+origin-attestation development observer is not part of this feature.
+
 ## Project artifacts
 
 - `docs/00-seed.md` — source considerations and design constraints.

@@ -1,7 +1,8 @@
 """Authored links preserve a difference between traces, not a new memory tier.
 
 Receipts are append-only; SQLite is a reconstructable mechanical adjacency index.
-Only deliberate neighborhood reads repair it. No host prefetch consumes this module.
+Only deliberate neighborhood reads repair it. Host ingress reads the projection
+separately and may reuse validation, never the repair/write paths in this module.
 """
 from __future__ import annotations
 

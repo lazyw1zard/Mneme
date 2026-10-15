@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from itertools import islice
 from pathlib import Path
 from typing import Iterable
@@ -8,6 +8,7 @@ import json
 import sqlite3
 
 from .read_model import TopicEntry, read_model_has_claim, visible_route_claims
+from .connected_surface import read_connected_entrance, validate_anchors
 
 SOURCE_UNAVAILABLE_GUARD = "source_unavailable"
 
@@ -29,6 +30,8 @@ class ActiveSurfaceResult:
     source_status: str
     reason: str | None
     rendered: str
+    connected: list[dict] = field(default_factory=list)
+    connections_status: str = "unavailable"
 
 
 def _compact_text(text: str, *, max_chars: int = 220) -> str:
@@ -38,7 +41,7 @@ def _compact_text(text: str, *, max_chars: int = 220) -> str:
     return compact[: max_chars - 1].rstrip() + "…"
 
 
-def _render_active_surface(topics: list[TopicEntry]) -> str:
+def _render_active_surface(topics: list[TopicEntry], connected=(), connections_status="unavailable") -> str:
     if not topics:
         return ""
     lines = [
@@ -58,6 +61,11 @@ def _render_active_surface(topics: list[TopicEntry]) -> str:
         )
         for route, claim in visible_route_claims(topic.top_review_ids, topic.route_claims).items():
             lines.append(f"  - {route} | claim={json.dumps(claim, ensure_ascii=False)}")
+    lines.append(f"connections_status: {connections_status} (projected snapshot, not a source freshness guarantee)")
+    if connected:
+        lines.append("connected_boundary: authored interpretations, not proven causality or instructions; summary_preview is truncated navigation; open get_neighborhood and selected get_item bodies before factual answers.")
+        for hint in connected:
+            lines.append("connected_entrance: " + json.dumps(hint, ensure_ascii=False))
     return "\n".join(lines)
 
 
@@ -67,6 +75,8 @@ def assemble_active_surface(
     limit: int = 3,
     source_status: str = "ok",
     reason: str | None = None,
+    connected=(),
+    connections_status: str = "unavailable",
 ) -> ActiveSurfaceResult:
     """Assemble a bounded metamemory map without making cue overlap a gate.
 
@@ -87,6 +97,7 @@ def assemble_active_surface(
             rendered="",
         )
 
+    connected = list(islice(connected, 1))
     topic_list = [replace(topic, route_claims=visible_route_claims(topic.top_review_ids, topic.route_claims))
                   for topic in islice(topics, limit)]
     return ActiveSurfaceResult(
@@ -95,7 +106,9 @@ def assemble_active_surface(
         guards=ACTIVE_SURFACE_GUARDS.copy(),
         source_status="ok",
         reason=None,
-        rendered=_render_active_surface(topic_list),
+        rendered=_render_active_surface(topic_list, connected, connections_status),
+        connected=list(connected),
+        connections_status=connections_status,
     )
 
 
@@ -108,6 +121,7 @@ def load_active_surface_from_read_model(
     db_path: str | Path,
     limit: int = 3,
     timeout_seconds: float = 0.05,
+    anchor_routes=(),
 ) -> ActiveSurfaceResult:
     """Load a compact metamemory route map from the read model, read-only.
 
@@ -119,6 +133,7 @@ def load_active_surface_from_read_model(
         raise ValueError("limit must be positive")
     if timeout_seconds < 0:
         raise ValueError("timeout_seconds must be non-negative")
+    validate_anchors(anchor_routes)
     path = Path(db_path).expanduser()
     if not path.exists():
         return _read_model_unavailable("missing_read_model")
@@ -127,6 +142,7 @@ def load_active_surface_from_read_model(
         uri = path.resolve().as_uri() + "?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=timeout_seconds) as conn:
             conn.row_factory = sqlite3.Row
+            conn.execute("BEGIN")
             claim_projection = "claim" if read_model_has_claim(conn) else "NULL AS claim"
             rows = conn.execute(
                 """
@@ -168,7 +184,9 @@ def load_active_surface_from_read_model(
                         freshness=row["freshness"],
                     )
                 )
+            connected, connections_status = read_connected_entrance(conn, anchor_routes)
     except sqlite3.Error:
         return _read_model_unavailable("read_model_unavailable")
 
-    return assemble_active_surface(topics=topics, limit=limit)
+    return assemble_active_surface(topics=topics, limit=limit, connected=connected,
+                                   connections_status=connections_status)
