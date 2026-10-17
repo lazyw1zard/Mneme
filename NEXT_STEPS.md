@@ -51,6 +51,13 @@ adapter tests are not native validation of every supported host.
 
 ### 1. Evaluate the added value of authored relations
 
+A narrowed [one-arc connected-entry pilot](docs/experiments/connected-entry-pilot/RESULTS.md)
+compared the same claims/routes/tools with and without an initial edge preview:
+6 recorded trials, 5 complete, 1 output-limit censored; in two completed matched
+pairs no navigation advantage was observed. This checks initial-entry affordance,
+not graph availability or general relation efficacy. Do not treat this descriptive
+pilot as a reason to expand or remove the existing working graph/ingress.
+
 Extend the controlled recall work to questions requiring multiple memories and
 relationship grounds, not just dates. Hold bodies, route coverage, budgets and
 questions constant when comparing claims-only with claims-plus-relations.

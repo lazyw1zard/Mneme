@@ -160,6 +160,12 @@ or proof of general efficacy/long-term consolidation. Old memory was unchanged.
 
 **Minimal closure completed:** Reviewed implementation at `b7d310e5d173477785d862ad42b657ddd309d7e8`; 451 Python and 14 standalone Node tests passed. A deliberate real MCP pilot recorded one relation and returned a two-node/one-edge view with unchanged originals and duplicate-free retry. See [verified aggregate results](../experiments/authored-connections/RESULTS.md). Steps 4–5 below remain future evaluation/consolidation work; no engram candidate was created.
 
+**Bounded evaluation update:** A [one-arc connected-entry pilot](../experiments/connected-entry-pilot/RESULTS.md)
+recorded six real cells (five completed, one output-limit censored). With relation
+tools available in both arms, the extra initial edge preview showed no navigation
+advantage in two fully completed pairs. This is a descriptive initial-entry test,
+not closure of general relation efficacy or Step 5 consolidation below.
+
 **Objective:** I can retrieve how one trace continued or corrected another without reconstructing previously authored topology from scratch.
 
 **Files:** Choose a small `src/mnion/connections.py` core receipt/projection seam, `tests/test_mnion_connections.py`, and integration points in `micro_consolidation.py`, `read_model.py`, `mcp_server.py` after the prior slices. These are proposed files, not existing APIs.
