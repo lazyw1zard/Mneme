@@ -7,6 +7,13 @@ from mnion.mcp_server import (
 )
 
 
+def test_retired_unused_server_path_wrappers_are_not_exposed():
+    import mnion.mcp_server as server_module
+
+    for name in ("default_receipts_path", "default_read_model_path"):
+        assert not hasattr(server_module, name), name
+
+
 def test_mneme_state_dir_env_overrides_default(monkeypatch, tmp_path):
     root = tmp_path / "custom-state"
     monkeypatch.setenv("MNEME_STATE_DIR", str(root))

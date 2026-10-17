@@ -3,6 +3,19 @@
 This file records small architectural decisions that should shape future Mneme work.
 It is not a heavy ADR process. Keep entries short, practical, and revisable.
 
+## Reading historical decisions
+
+Start with [the current direction and status](NEXT_STEPS.md). Dated entries
+below preserve earlier reasoning; they are not all current API specifications.
+In particular, the word-gate/probe pipeline is superseded by the later ingress
+cleanup, and the historical statements that claims/relations are future work
+predate their accepted implementations. The accepted minimal
+[connection](docs/plans/authored-connections.md) and
+[connected-ingress](docs/plans/connected-ingress.md) contracts override broader
+field/tool sketches. Claude's open proposals remain proposals except where an
+explicit subsequent decision and implementation accepted them. Do not resume
+standalone `events` or the withdrawn origin-attestation observer from old notes.
+
 ## Decision rules
 
 - Prefer organic simplicity over clever completeness.

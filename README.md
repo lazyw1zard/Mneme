@@ -112,7 +112,8 @@ origin-attestation development observer is not part of this feature.
 - `docs/05-mnion-options-and-optimizations.md` — living shelf for tuning choices: TTL, active limits, config candidates, archive/index options.
 - `docs/06-micro-consolidation.md` — minimal portable experiment: latest mnions become a host-agent review packet and one candidate contour.
 - `docs/07-presence-anchor-and-mcp.md` — where the always-visible Mneme Presence Anchor and MCP `list_topics`/`get_item` retrieval paws are placed.
-- `NEXT_STEPS.md` — small reversible slices to continue.
+- `NEXT_STEPS.md` — current capabilities, remaining checks and possible later slices.
+- `docs/history/` — preserved earlier planning snapshots, not current API contracts.
 
 ## Optional authored claims
 
@@ -228,8 +229,10 @@ Two deliberate tools add relationships without another memory tier:
 The sole new semantic object is `MnionConnection`. Its separate append-only
 `mnion_connections.jsonl` is projected into the existing SQLite file with
 directional indexes and an atomic freshness marker. A neighborhood is computed
-on reading, never persisted as an arc/episode/cluster object. Native prefetch and
-normal item/topic retrieval do not automatically traverse or preload relations.
+on reading, never persisted as an arc/episode/cluster object. Native prefetch may expose the one
+projected connected entrance described above; it does not call full neighborhood
+retrieval or load endpoint bodies. Normal item/topic retrieval does not
+automatically traverse relations.
 Explicit stale neighborhood reads may reconstruct projections; fresh reads are
 read-only and use limited indexed ranges, including on high-degree nodes.
 

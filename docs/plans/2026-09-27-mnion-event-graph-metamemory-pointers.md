@@ -1,5 +1,12 @@
 # Mnion Event Graph and Metamemory Pointers Implementation Plan
 
+> **Historical design sketch, not the current API contract.** Later work
+> deliberately narrowed the relation kinds/fields and uses `get_neighborhood`
+> rather than implementing every tool below. Start at [current next steps](../../NEXT_STEPS.md)
+> and the accepted [connection](authored-connections.md) and
+> [ingress](connected-ingress.md) contracts. Graph-pointer and candidate-queue
+> proposals below are not all implemented or authorized as one bundle.
+
 > **For Hermes:** This is a planning artifact only. Do not implement code from this plan until Denis explicitly asks to start coding.
 
 **Goal:** Add a simple, functional Mneme event-connection graph so reviewed mnions can form lived relation neighborhoods, feed engram-candidate review, and generate a second metamemory pointer layer: “I know that I know this.”

@@ -85,14 +85,6 @@ def default_call_state_path() -> Path:
     return default_state_dir() / "mneme_seq.json"
 
 
-def default_receipts_path() -> Path:
-    return default_state_dir() / "micro_consolidation_reviews.jsonl"
-
-
-def default_read_model_path() -> Path:
-    return default_state_dir() / "mneme_read_model.sqlite3"
-
-
 CAPTURE_DESCRIPTION = (
     "Capture an ephemeral memory tag for a meaningful contour delta "
     "that may matter later but is not yet a consolidated mnion or durable memory. "
