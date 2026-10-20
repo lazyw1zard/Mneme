@@ -79,6 +79,19 @@ def pending_review_schema_errors(pending: dict[str, Any]) -> list[str]:
         packet_selected_ids = _selected_id_list(review_packet.get("selected_ids"))
         if packet_selected_ids is None:
             errors.append("review_packet.selected_ids")
+        if "neighbors" in review_packet:
+            from .neighbors import validate_candidate_surface
+            try:
+                validate_candidate_surface(review_packet["neighbors"])
+                created = pending.get("created_at")
+                if not isinstance(created, str) or not created:
+                    raise ValueError("Missing pending attempt identity")
+                datetime.fromisoformat(created.replace("Z", "+00:00"))
+                surface = review_packet["neighbors"]
+                if surface["status"] == "ok" and surface["anchor_seq"] != pending.get("mneme_call_seq"):
+                    raise ValueError("Neighbor anchor differs from pending tick")
+            except (ValueError, TypeError):
+                errors.append("review_packet.neighbors_or_attempt")
 
     if selected_ids is not None:
         if packet_selected_ids is not None and packet_selected_ids != selected_ids:
@@ -106,6 +119,7 @@ def write_pending_review(
     decision: ReviewPressureDecision,
     review_request: Any,
     ingress: ReviewPressureIngress,
+    neighbors: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist a compact pending-review latch with atomic replace."""
     target = Path(path).expanduser()
@@ -135,6 +149,8 @@ def write_pending_review(
             "reason": review_request.reason,
         },
     }
+    if neighbors is not None:
+        payload["review_packet"]["neighbors"] = neighbors
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
     try:

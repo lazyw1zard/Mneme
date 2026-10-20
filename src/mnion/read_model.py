@@ -161,6 +161,7 @@ def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, anno
         with sqlite3.connect(_read_only_uri(path), uri=True, timeout=timeout_seconds) as conn:
             has_claim = read_model_has_claim(conn)
             has_annotations = _has_annotation_projection(conn)
+            has_call_seq = any(row[1] == "consolidation_call_seq" for row in conn.execute("PRAGMA table_info(mnion_items)"))
             annotation_row = conn.execute(
                 "SELECT value FROM read_model_meta WHERE key = ?", (ANNOTATIONS_SIGNATURE_KEY,)
             ).fetchone()
@@ -171,7 +172,7 @@ def read_model_freshness(*, receipts_path: str | Path, db_path: str | Path, anno
     except sqlite3.Error:
         return ReadModelFreshness(status="stale", stored_signature=None, current_signature=current_signature)
     stored_signature = str(row[0]) if row is not None else None
-    status = "fresh" if (has_claim and has_annotations and stored_signature == current_signature
+    status = "fresh" if (has_claim and has_annotations and has_call_seq and stored_signature == current_signature
                          and annotation_row is not None and annotation_row[0] == annotation_signature) else "stale"
     return ReadModelFreshness(status=status, stored_signature=stored_signature, current_signature=current_signature)
 
@@ -244,6 +245,9 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
             conn.execute("ALTER TABLE mnion_items ADD COLUMN claim TEXT")
         if not _has_annotation_projection(conn):
             conn.execute("ALTER TABLE mnion_items ADD COLUMN claim_annotation_json TEXT")
+        if not any(row[1] == "consolidation_call_seq" for row in conn.execute("PRAGMA table_info(mnion_items)")):
+            conn.execute("ALTER TABLE mnion_items ADD COLUMN consolidation_call_seq INTEGER")
+        conn.execute("CREATE INDEX IF NOT EXISTS mnion_items_call_seq ON mnion_items(consolidation_call_seq DESC, review_id ASC)")
         conn.execute(META_SCHEMA)
         conn.execute("DELETE FROM mnion_items")
         count = 0
@@ -258,8 +262,8 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                     """
                     INSERT OR REPLACE INTO mnion_items (
                         review_id, summary, valence, rationale, grouped_ids_json,
-                        created_at, receipt_json, topic_label, topic_abstraction, claim, claim_annotation_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, receipt_json, topic_label, topic_abstraction, claim, claim_annotation_json, consolidation_call_seq
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         review_id,
@@ -273,6 +277,8 @@ def materialize_mnion_items_sqlite(*, receipts_path: str | Path, db_path: str | 
                         abstraction,
                         annotation["claim"] if annotation is not None else mnion.claim,
                         json.dumps(annotation, ensure_ascii=False, sort_keys=True) if annotation is not None else None,
+                        receipt.get("mneme_call_seq") if type(receipt.get("mneme_call_seq")) is int
+                        and 0 <= receipt["mneme_call_seq"] <= 9223372036854775807 else None,
                     ),
                 )
                 count += 1

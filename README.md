@@ -77,6 +77,13 @@ Kernel
   = explicit semantic spine; Mneme points to it and proposes updates, not replaces it
 ```
 
+## Neighbors during consolidation
+
+Review packets can expose bounded temporal candidates and accept optional authored
+relations alongside new mnions. Window and candidate count are configured, not
+inferred from the topic map. Zero-link review remains valid; no cue or adaptive
+reinforcement is added. See [contract and configuration](docs/consolidation-neighbors.md).
+
 ## Connected memory entrance (bounded first slice)
 
 `load_active_surface_from_read_model` retains the compact topic/claim map and

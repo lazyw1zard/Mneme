@@ -115,6 +115,8 @@ CONSOLIDATE_REVIEW_DESCRIPTION = (
     "Use legacy summary/valence/member_ids for one mnion, or explicit packet outcomes for multiple mnions, "
     "reviewed noise, deferred tags with reopen policy, and explicit ungrouped tags. "
     "Optional claim (top-level in legacy mode, per mnion in packet mode) names an authored concrete change or understanding: single-line, at most 240 Unicode characters. "
+    "Optional relations join a new mnion (mnion_index starts at 1) to exact routes in review_packet.neighbors. "
+    "Open selected neighbor originals with get_item first; zero relations is normal. Relations are authored grounds, not inferred similarity. "
     "Use this when capture returns next_tool='consolidate_review' or action='redirected_to_pending_review'. "
     "The tool validates exact pending selected_ids and never auto-generates semantics, writes kernel notes, or creates engrams."
 )
@@ -185,6 +187,7 @@ def _verified_review_id_for_pending(
     receipts_path: Path,
     read_model_path: Path,
     annotations_path: Path | None = None,
+    connections_path: Path | None = None,
 ) -> str | None:
     selected_ids = _nonempty_string_list(pending_review.get("selected_ids"))
     if selected_ids is None:
@@ -200,7 +203,15 @@ def _verified_review_id_for_pending(
             if _receipt_is_no_item_packet(receipt):
                 return review_id
             continue
+        from .connections import _paths, _separate
+        _separate(_paths(receipts_path.parent, receipts_path, connections_path,
+                         annotations_path, read_model_path, None), ())
         _materialize_receipts(receipts_path, read_model_path, annotations_path)
+        if receipt.get("connections"):
+            from .connections import materialize_connections
+            materialize_connections(receipts_path=receipts_path,
+                                    connections_path=connections_path or receipts_path.parent / "mnion_connections.jsonl",
+                                    db_path=read_model_path)
         if all(get_item(review_id=item_review_id, db_path=read_model_path) is not None for item_review_id in review_ids):
             return review_id
     return None
@@ -675,12 +686,16 @@ def create_server(
                 )
             if pending_review_is_resolved(pending_payload, review_receipts):
                 try:
+                    from .connections import _paths, _separate
+                    _separate(_paths(state_dir, receipts, connections, annotations, read_model, pending_review),
+                              (ledger, state, config_artifact))
                     verified_review_id = _verified_review_id_for_pending(
                         pending_review=pending_payload,
                         review_receipts=review_receipts,
                         receipts_path=receipts,
                         read_model_path=read_model,
                         annotations_path=annotations,
+                        connections_path=connections,
                     )
                 except Exception:
                     verified_review_id = None
@@ -724,12 +739,28 @@ def create_server(
             oldest_pinned_unread_age_seconds=pinned_stats["oldest_pinned_unread_age_seconds"],
         )
         ingress = build_review_pressure_ingress(decision=pressure, review_request=review_request)
+        neighbors = None
         if pressure.needed and ingress is not None:
+            from .neighbors import temporal_candidates
+            nc = config.consolidation_neighbors
+            if nc.enabled:
+                try:
+                    from .connections import _paths, _separate
+                    _separate(_paths(state_dir, receipts, connections, annotations, read_model, pending_review),
+                              (ledger, state, config_artifact))
+                    _ensure_receipts_materialized(receipts, read_model, annotations)
+                    neighbors = temporal_candidates(db_path=read_model, anchor_seq=pressure.mneme_call_seq,
+                                                    lookback_calls=nc.lookback_calls, limit=nc.candidate_limit)
+                except Exception:
+                    neighbors = {"status": "unavailable", "candidates": [], "has_more": False}
+            else:
+                neighbors = {"status": "disabled", "candidates": [], "has_more": False}
             write_pending_review(
                 pending_review,
                 decision=pressure,
                 review_request=review_request,
                 ingress=ingress,
+                neighbors=neighbors,
             )
         return {
             "ok": True,
@@ -757,6 +788,7 @@ def create_server(
                 _agent_ingress_payload(asdict(ingress), review_request.selection.selected_ids) if ingress is not None else None
             ),
             "review_packet": {
+                **({"neighbors": neighbors} if neighbors is not None else {}),
                 "packet_limit": review_request.packet_limit,
                 "selected_ids": review_request.selection.selected_ids,
                 "memory_tags": [asdict(tag) for tag in review_request.memory_tags] if pressure.needed else [],
@@ -795,6 +827,14 @@ def create_server(
         deferred: list[dict[str, Any]] | None = None,
         reviewed_noise_ids: list[str] | None = None,
         ungrouped_ids: list[str] | None = None,
+        relations: Annotated[Any, Field(json_schema_extra={"anyOf": [
+            {"type": "array", "maxItems": 8, "items": {"type": "object", "additionalProperties": False,
+             "required": ["mnion_index", "target_review_id", "relation_kind", "relation_summary"],
+             "properties": {"mnion_index": {"type": "integer", "minimum": 1},
+                            "target_review_id": {"type": "string"},
+                            "relation_kind": {"type": "string", "enum": ["continues", "corrects", "follows_from"]},
+                            "relation_summary": {"type": "string", "maxLength": 1200}}}},
+            {"type": "null"}]})] = None,
     ) -> dict[str, Any]:
         try:
             pending_payload = load_pending_review(pending_review)
@@ -1006,8 +1046,30 @@ def create_server(
             )
 
         try:
-            receipt = apply_micro_consolidation_review(result, receipt_path=receipts, state_path=state)
-        except ValueError as exc:
+            if relations is not None and not isinstance(relations, list):
+                raise ValueError("relations must be a list or null")
+            surface = pending_payload.get("review_packet", {}).get("neighbors", {})
+            candidates = surface.get("candidates", []) if isinstance(surface, dict) else []
+            candidate_routes = [c["review_id"] for c in candidates if isinstance(c, dict) and isinstance(c.get("review_id"), str)]
+            if relations:
+                # Check source integrity and real path aliases before the combined append.
+                from .connections import _paths, _separate, load_connections
+                paths = _paths(state_dir, receipts, connections, annotations, read_model, pending_review)
+                _separate(paths, (ledger, state, config_artifact))
+                existing_edges = load_connections(connections, receipts)
+                # Candidate presence does not substitute for a retrievable original.
+                _ensure_receipts_materialized(receipts, read_model, annotations)
+                if any(get_item(review_id=edge[key], db_path=read_model) is None
+                       for edge in existing_edges for key in ('source_review_id', 'target_review_id')):
+                    raise ValueError("Existing connection endpoint is unavailable")
+                for intent in relations:
+                    if (not isinstance(intent, dict) or intent.get("target_review_id") not in candidate_routes
+                            or get_item(review_id=intent["target_review_id"], db_path=read_model) is None):
+                        raise ValueError("Relation target must be an available exact candidate route")
+            receipt = apply_micro_consolidation_review(result, receipt_path=receipts, state_path=state,
+                                                       relations=relations, candidate_routes=candidate_routes,
+                                                       review_attempt=pending_payload.get("created_at"))
+        except (ValueError, OSError, sqlite3.Error, TypeError) as exc:
             return {
                 "ok": False,
                 "action": "invalid_micro_consolidation_review",
@@ -1020,6 +1082,9 @@ def create_server(
         try:
             _materialize_receipts(receipts, read_model, annotations)
             items = [get_item(review_id=review_id, db_path=read_model) for review_id in review_ids]
+            if receipt.get("connections"):
+                from .connections import materialize_connections
+                materialize_connections(receipts_path=receipts, connections_path=connections, db_path=read_model)
         except Exception as exc:  # noqa: BLE001 - fail closed at the MCP boundary.
             return {
                 "ok": False,
@@ -1106,6 +1171,7 @@ def create_server(
                 else "list_topics -> get_item(review_ids[n])"
             ),
             "items": item_payloads,
+            "connections": receipt.get("connections", []),
             "do_not_infer": [
                 "This receipt records the live agent's semantic micro-consolidation; Mneme did not auto-generate the mnion.",
                 "No kernel note, engram, embedding, or external effect was created.",

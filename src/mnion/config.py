@@ -29,6 +29,13 @@ class ReviewPressureConfig:
 
 
 @dataclass(frozen=True)
+class ConsolidationNeighborsConfig:
+    enabled: bool = True
+    lookback_calls: int = 40
+    candidate_limit: int = 4
+
+
+@dataclass(frozen=True)
 class StorageConfig:
     state_dir: Path = field(default_factory=lambda: Path("~/.local/state/mneme").expanduser())
 
@@ -38,6 +45,7 @@ class MnemeConfig:
     memory_tag: MemoryTagConfig = field(default_factory=MemoryTagConfig)
     review_pressure: ReviewPressureConfig = field(default_factory=ReviewPressureConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
+    consolidation_neighbors: ConsolidationNeighborsConfig = field(default_factory=ConsolidationNeighborsConfig)
 
 
 def default_config_path() -> Path:
@@ -56,6 +64,16 @@ def load_mneme_config(path: str | Path | None = None) -> MnemeConfig:
     memory_tag_raw = data.get("memory_tag", {}) or {}
     review_pressure_raw = data.get("review_pressure", {}) or {}
     storage_raw = data.get("storage", {}) or {}
+    neighbors_raw = data.get("consolidation_neighbors", {})
+    if not isinstance(neighbors_raw, dict):
+        raise ValueError("consolidation_neighbors must be a table")
+    neighbors = ConsolidationNeighborsConfig(**neighbors_raw)
+    if type(neighbors.enabled) is not bool:
+        raise ValueError("consolidation_neighbors.enabled must be boolean")
+    for name, minimum in (("lookback_calls", 0), ("candidate_limit", 1)):
+        value = getattr(neighbors, name)
+        if type(value) is not int or not minimum <= value <= 2147483647:
+            raise ValueError(f"consolidation_neighbors.{name} must be an integer >= {minimum}")
 
     memory_tag = MemoryTagConfig(
         default_ttl_seconds=int(memory_tag_raw.get("default_ttl_seconds", MemoryTagConfig.default_ttl_seconds)),
@@ -86,7 +104,8 @@ def load_mneme_config(path: str | Path | None = None) -> MnemeConfig:
         state_dir=Path(str(storage_raw.get("state_dir", StorageConfig().state_dir))).expanduser(),
     )
     _validate_config(memory_tag=memory_tag, review_pressure=review_pressure)
-    return MnemeConfig(memory_tag=memory_tag, review_pressure=review_pressure, storage=storage)
+    return MnemeConfig(memory_tag=memory_tag, review_pressure=review_pressure, storage=storage,
+                       consolidation_neighbors=neighbors)
 
 
 def _validate_config(*, memory_tag: MemoryTagConfig, review_pressure: ReviewPressureConfig) -> None:

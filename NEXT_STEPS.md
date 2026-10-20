@@ -115,12 +115,17 @@ and [pointer maturity decision](DECISIONS.md). A new class/table per maturity na
 is not required. This work may share an experiment with the prior steps; its
 precise implementation scope remains a separate decision.
 
-### 4. Reduce graph-placement overhead if practice requires it
+### 4. Neighbors during consolidation — implemented bounded slice
 
-Offer a few candidate neighbor routes/claims during consolidation and allow zero
-or more deliberate relations in the same act. Separate `connect_items` already
-works; the integrated review shape is not implemented merely because it exists.
-Do not infer edges or require a mandatory second graph-placement ceremony.
+[Neighbors during consolidation](docs/consolidation-neighbors.md) adds a configured
+backward call window and candidate cap to review packets, independently of topic-map
+ranking. Optional relations join new mnions to selected existing candidate routes;
+zero links preserves the prior flow. New mnions and relations share one receipt,
+then feed the existing item/adjacency projections, with pending-attempt retry.
+
+This is the preservation/consolidation level, not feedback reinforcement or a
+metapointer. General semantic neighbor search, cue and a future pointer candidate
+source are not implemented. Temporal proximity provides candidates, not grounds.
 
 ## Possible slice under question — intact long-form intake
 

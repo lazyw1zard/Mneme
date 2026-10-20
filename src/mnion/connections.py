@@ -58,16 +58,27 @@ def _validate(source: Any, target: Any, kind: Any, summary: Any) -> None:
     summary.encode('utf-8')
 
 
-def load_connections(path: str | Path) -> list[dict[str, Any]]:
+def load_connections(path: str | Path, receipts_path: str | Path | None = None) -> list[dict[str, Any]]:
     ledger = Path(path).expanduser()
-    if not ledger.exists():
-        return []
     values, identities = [], set()
     # JSONL boundaries are physical LF, not every Unicode text separator.
-    for line in ledger.read_text(encoding='utf-8').split('\n'):
-        if not line.strip():
-            continue
-        value = json.loads(line)
+    records = []
+    if ledger.exists():
+        records = [json.loads(line) for line in ledger.read_text(encoding='utf-8').split('\n') if line.strip()]
+    if receipts_path is not None:
+        for receipt in load_micro_consolidation_review_receipts(receipts_path):
+            edges = receipt.get('connections', [])
+            if not isinstance(edges, list):
+                raise ValueError('Review connections must be a list.')
+            for edge in edges:
+                if not isinstance(edge, dict) or not isinstance(edge.get('created_at'), str):
+                    raise ValueError('Invalid inline connection.')
+                # Preserve external append order; weave review edges by recording time.
+                position = next((i for i, old in enumerate(records)
+                                 if isinstance(old, dict) and isinstance(old.get('created_at'), str)
+                                 and old['created_at'] > edge['created_at']), len(records))
+                records.insert(position, edge)
+    for value in records:
         if not isinstance(value, dict) or set(value) != set(MnionConnection.__dataclass_fields__):
             raise ValueError('Invalid connection receipt fields.')
         _validate(value['source_review_id'], value['target_review_id'],
@@ -80,6 +91,32 @@ def load_connections(path: str | Path) -> list[dict[str, Any]]:
         identities.add(identity)
         values.append(value)
     return values
+
+
+def build_review_connections(receipt: dict, relations: Any, candidate_routes: list[str]) -> list[dict]:
+    """Resolve local new-group references before the single review append."""
+    if not isinstance(relations, list) or len(relations) > MAX_CONNECTIONS:
+        raise ValueError('relations must be a list with at most 8 entries')
+    entries = receipt['mnions']
+    edges, seen = [], set()
+    fields = {'mnion_index', 'target_review_id', 'relation_kind', 'relation_summary'}
+    for intent in relations:
+        if not isinstance(intent, dict) or set(intent) != fields:
+            raise ValueError('Each relation requires exactly mnion_index, target_review_id, relation_kind, relation_summary')
+        index = intent['mnion_index']
+        if type(index) is not int or not 1 <= index <= len(entries):
+            raise ValueError('mnion_index must identify a new mnion in this review, starting at 1')
+        source = entries[index-1]['review_id']
+        target, kind, summary = (intent[k] for k in ('target_review_id', 'relation_kind', 'relation_summary'))
+        _validate(source, target, kind, summary)
+        if target not in candidate_routes:
+            raise ValueError('Relation target must be a literal route from the pending candidate surface')
+        key = (source, target, kind, summary)
+        if key in seen:
+            raise ValueError('Duplicate review relation')
+        seen.add(key)
+        edges.append(asdict(MnionConnection('connection_'+uuid4().hex, source, target, kind, summary, receipt['created_at'])))
+    return edges
 
 
 def _paths(state_dir=None, receipts_path=None, connections_path=None, annotations_path=None,
@@ -136,7 +173,7 @@ def materialize_connections(*, receipts_path: str | Path, connections_path: str 
     """Rebuild only adjacency and its marker, with schema/rows/marker atomic."""
     receipts, ledger, db = map(Path, (receipts_path, connections_path, db_path))
     signature = _signature(ledger, receipts)
-    edges = load_connections(ledger)
+    edges = load_connections(ledger, receipts)
     conn = sqlite3.connect(db, timeout=.05)
     try:
         with conn:
@@ -155,6 +192,13 @@ def materialize_connections(*, receipts_path: str | Path, connections_path: str 
                 conn.execute('INSERT INTO mnion_connections VALUES(?,?,?,?,?)',
                              (seq,edge['id'],edge['source_review_id'],edge['target_review_id'],
                               json.dumps(edge,ensure_ascii=False,sort_keys=True)))
+            # A trigger can silently ignore/alter INSERT: successful execution is not projection proof.
+            for edge in edges:
+                row = conn.execute('SELECT source_review_id,target_review_id,payload_json '
+                                   'FROM mnion_connections WHERE id=?', (edge['id'],)).fetchone()
+                if (row is None or row[0] != edge['source_review_id'] or row[1] != edge['target_review_id']
+                        or json.loads(row[2]) != edge):
+                    raise ValueError('Connection projection read-back failed.')
             conn.execute(read_model.META_SCHEMA)
             conn.execute('INSERT OR REPLACE INTO read_model_meta VALUES(?,?)', (_SIGNATURE_KEY,signature))
         return len(edges)
@@ -204,7 +248,7 @@ def append_connection(*, source_review_id: Any, target_review_id: Any, relation_
             if route not in routes:
                 return {'ok':False,'action':'unknown_item_route','exact_item_route':route}
         load_claim_annotations(annotations)
-        edges = load_connections(ledger)
+        edges = load_connections(ledger, receipts)
         if any(e[k] not in routes for e in edges for k in ('source_review_id', 'target_review_id')):
             raise ValueError('Existing connection evidence has an unavailable endpoint; no new evidence appended.')
     except (ValueError,TypeError,OSError) as exc:
@@ -244,7 +288,7 @@ def append_connection(*, source_review_id: Any, target_review_id: Any, relation_
         finally:
             conn.close()
         # Projection success alone is not durable evidence.
-        if edge not in load_connections(ledger):
+        if edge not in load_connections(ledger, receipts):
             raise ValueError('Connection evidence disappeared after projection.')
     except Exception as exc:
         return {**_error('connection_recorded_projection_failed',exc),'connection':edge,

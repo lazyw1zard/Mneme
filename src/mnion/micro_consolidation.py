@@ -414,6 +414,9 @@ def apply_micro_consolidation_review(
     *,
     receipt_path: str | Path,
     state_path: str | Path | None = None,
+    relations: list[dict[str, Any]] | None = None,
+    candidate_routes: list[str] | None = None,
+    review_attempt: str | None = None,
 ) -> dict[str, Any]:
     """Append a receipt for a successful micro-consolidation result.
 
@@ -480,6 +483,10 @@ def apply_micro_consolidation_review(
     classified_set = set(classified_ids)
     ungrouped_ids = [memory_tag_id for memory_tag_id in selected_ids if memory_tag_id not in classified_set]
 
+    review_payload = {"groups": [asdict(group) for group in groups],
+                      "reviewed_noise_ids": reviewed_noise_ids,
+                      "deferred": [asdict(outcome) for outcome in deferred],
+                      "ungrouped_ids": ungrouped_ids, "relations": relations or []}
     review_id = f"review_{uuid.uuid4().hex}"
     multiple_groups = len(groups) > 1
     mnion_entries = [
@@ -509,6 +516,18 @@ def apply_micro_consolidation_review(
     if len(groups) == 1:
         # Preserve the established single-mnion receipt surface and routes.
         receipt["mnion"] = asdict(groups[0].mnion)
+    if relations is not None:
+        from .connections import build_review_connections
+        receipt["connections"] = build_review_connections(receipt, relations, candidate_routes or [])
+    if review_attempt is not None:
+        # Strict relation validation above must also run on retries (True is not index 1).
+        for prior in reversed(load_micro_consolidation_review_receipts(receipt_path)):
+            if prior.get("review_attempt") == review_attempt and prior.get("selected_ids") == selected_ids:
+                if json.dumps(prior.get("review_payload"), sort_keys=True) != json.dumps(review_payload, sort_keys=True):
+                    raise ValueError("Review already recorded; retry exact authorship, not changed content")
+                return prior
+        receipt["review_attempt"] = review_attempt
+        receipt["review_payload"] = review_payload
     _append_jsonl(receipt_path, receipt)
     return receipt
 

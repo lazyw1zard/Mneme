@@ -205,6 +205,9 @@ def test_failed_legacy_claim_migration_stays_stale_and_retries_unchanged_source(
     }
     with sqlite3.connect(db) as conn:
         conn.execute('ALTER TABLE mnion_items DROP COLUMN claim')
+        # Recreate the pre-claim schema, including absence of newer derived metadata.
+        conn.execute('DROP INDEX IF EXISTS mnion_items_call_seq')
+        conn.execute('ALTER TABLE mnion_items DROP COLUMN consolidation_call_seq')
         columns_before = conn.execute('PRAGMA table_info(mnion_items)').fetchall()
         assert len(columns_before) == 10
         rows_before = conn.execute('SELECT * FROM mnion_items ORDER BY review_id').fetchall()
