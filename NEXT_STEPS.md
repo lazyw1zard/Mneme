@@ -5,6 +5,33 @@ extension. The earlier slice-by-slice roadmap is preserved byte-for-byte in
 [the historical roadmap](docs/history/initial-next-steps.md). Read that file as
 history, not as the current completion list or a list of available commands.
 
+## Two levels of work — orientation, not a new code split
+
+Keep Mneme development legible through two levels:
+
+1. **Сохранение и консолидация памяти — Memory preservation and consolidation.**
+   How material enters memory, is retained and consolidated, keeps provenance and
+   relations, and remains addressable/retrievable. The intact long-form intake
+   question belongs here and remains unresolved.
+2. **Обратная связь и усиление — Feedback and reinforcement.**
+   How actual returns, use and subsequent traces affect later accessibility,
+   route/connection strength and memory pressure. The loop in which recalled
+   content changes continuation and that continuation feeds back into memory
+   belongs here, as later work when feedback development resumes.
+
+The backend/frontend comparison is an orientation analogy, not a demand for two
+services, a UI, new object tiers or a repository refactor. Existing retrieval is
+already available; adaptive feedback is not a prerequisite for preserving or
+consolidating memory. Do not make a preservation slice demonstrate changed action,
+new promises or reinforcement before it can count as working. Equally, a successful
+save or return does not establish an adaptive feedback loop.
+
+Classify proposed slices by which level they primarily extend; shared routes and
+provenance can support both. This distinction does not authorize reinforcement,
+forgetting, a new worker, or changes to the existing loop, and does not reorder
+`next`. An authored applicability cue is a possible navigation aid, not an
+implemented feedback mechanism or an agreed replacement for use-shaped pressure.
+
 ## Memory path
 
 ```text
