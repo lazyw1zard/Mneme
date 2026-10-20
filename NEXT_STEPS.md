@@ -95,6 +95,35 @@ or more deliberate relations in the same act. Separate `connect_items` already
 works; the integrated review shape is not implemented merely because it exists.
 Do not infer edges or require a mandatory second graph-placement ceremony.
 
+## Possible slice under question — intact long-form intake
+
+**Status: unresolved; no architecture selected and no implementation authorized.**
+
+The current short `memory_tag.delta` intake (280 characters) cannot carry a
+long intact text. An unconstrained `Mnion.summary` does not remove this intake
+bottleneck, and semantic summarization does not guarantee exact preservation.
+Standalone understanding must remain possible without an invented event context.
+
+The open question is how to retain whole material and make it reachable within
+Mneme's existing memory process without breaking the verified capture/review/return
+loop or adding an attention-heavy parallel archive. Internal call sequence alone
+provides temporal placement, not integration with provenance, relations or return.
+
+Constraints for reconsideration:
+
+- Preserve organic, attention-light operation; consolidation must not become a
+  separate self-reflective administration ritual for every retained item.
+- Do not require attachments to be inherited as cargo through every structure.
+- Do not duplicate general pointer behavior with a narrow source-reference lane.
+- Keep exact original preservation distinct from derived understanding; preserve
+  existing mnions, receipts and routes unchanged.
+- Consider larger tags, singleton review, a distinct intake object, or attachments
+  only as alternatives, not agreed solutions. Possible graphics support does not
+  by itself justify an attachment architecture.
+
+This is a possible future slice, not the selected next task. Do not implement an
+artifact store, broaden capture, or change schemas on the basis of this note.
+
 ## Possible later work — not the immediate bundle
 
 - Pointer/return-attempt history; useful and unsuccessful return feedback.
