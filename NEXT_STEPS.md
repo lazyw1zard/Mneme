@@ -104,11 +104,16 @@ Source: [October plan, Slice 4, Step 5](docs/plans/2026-10-08-claims-and-relatio
 
 ### 3. Confirm a connected-form metapointer
 
-Draft an authored entrance from opened originals and relations; bind it to exact
-item/connection evidence and a bounded retrieval action. Probe the route before
-claiming durable, repeatable addressability. A candidate hint may exist earlier.
-Only then choose the smallest persistence/ingress change justified by the result.
-The current two-node/one-edge preview is not automatically that metapointer.
+The current trial is **an entrance map, not connected-form consolidation**. Its
+purpose is "I know that I know": choose a route, expand a bounded graph fragment,
+then open selected originals. Keep branching, uncertainty and provenance visible;
+do not merge the mapped material into one narrative/event or a large mnion.
+The deeper-consolidation experiment above is separate, not a prerequisite.
+
+See the [entry-map trial](docs/plans/metapointer-entry-map-trial.md). Reversible
+experimental code is allowed before the whole architecture is settled. Structural
+change and semantic obsolescence are separate questions; novelty thresholds and
+replacement pointers remain hypotheses, not chosen lifecycle machinery.
 
 This direction exists in the [September graph sketch, Tasks 6–7](docs/plans/2026-09-27-mnion-event-graph-metamemory-pointers.md)
 and [pointer maturity decision](DECISIONS.md). A new class/table per maturity name
