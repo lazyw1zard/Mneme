@@ -132,6 +132,22 @@ This is the preservation/consolidation level, not feedback reinforcement or a
 metapointer. General semantic neighbor search, cue and a future pointer candidate
 source are not implemented. Temporal proximity provides candidates, not grounds.
 
+### 5. Neighbors during capture — planned after metapointers
+
+**Accepted order: finish the current metapointer entry-map slice, then take this
+separate capture slice.** Implementation has not started; the exact protocol and
+storage/API changes remain unselected.
+
+Provide bounded raw-tag neighbors and let the agent optionally select an existing
+tag for a repeat or an explicit relation, or keep a new independent trace. Do not
+force a neighbor choice or replace originals. Distinguish repeat, refinement and
+new meaning without turning every capture into another full consolidation.
+
+This primarily extends preservation/consolidation. Repeated occurrence is not
+retrieval-outcome reinforcement. Define the candidate-before-decision flow,
+review/lifecycle compatibility and retries before replacing automatic matching.
+See [the capture-neighbors slice](docs/plans/capture-neighbors.md).
+
 ## Possible slice under question — intact long-form intake
 
 **Status: unresolved; no architecture selected and no implementation authorized.**
