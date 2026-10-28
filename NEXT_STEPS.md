@@ -115,6 +115,12 @@ experimental code is allowed before the whole architecture is settled. Structura
 change and semantic obsolescence are separate questions; novelty thresholds and
 replacement pointers remain hypotheses, not chosen lifecycle machinery.
 
+The [selected-walk checkpoint](docs/experiments/metapointer-entry-map/WALK.md)
+exercises two explicit paths through one real fork using copied-state MCP stdio.
+It adds only an experimental expand/select helper and neutral tests, not a
+production pointer store or automatic semantic selection. The parent already knew
+the history; this is a practical transport/navigation check, not fresh-agent efficacy.
+
 This direction exists in the [September graph sketch, Tasks 6–7](docs/plans/2026-09-27-mnion-event-graph-metamemory-pointers.md)
 and [pointer maturity decision](DECISIONS.md). A new class/table per maturity name
 is not required. This work may share an experiment with the prior steps; its
@@ -178,6 +184,15 @@ This is a possible future slice, not the selected next task. Do not implement an
 artifact store, broaden capture, or change schemas on the basis of this note.
 
 ## Possible later work — not the immediate bundle
+
+### Architectural idea recorded, not added to this slice
+
+Denis proposed [graph-native engrams](docs/design/graph-native-engrams.md): a named
+connected memory form with its entrance, later exportable as a branch rather than
+necessarily authored first as a document. Branch membership, renewal, shared nodes,
+export fidelity and forgetting are open design questions. The current entry-map
+trial stays unchanged: pointer -> bounded connected view -> selected originals.
+This note does not authorize a new engram store, mature-memory deletion or migration.
 
 - Pointer/return-attempt history; useful and unsuccessful return feedback.
 - Compact source-grounded context briefs.

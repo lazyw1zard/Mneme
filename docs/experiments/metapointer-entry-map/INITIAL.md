@@ -4,6 +4,10 @@ Status: executable exploration of the existing graph, **not an implemented or
 model-evaluated metapointer**. Entry labels are hand-authored neutral test sketches.
 No production Python changed, no live captures/config/ingress writes occurred.
 
+Continuation: [selected walk](WALK.md) adds a tested experimental expand/select
+seam and a parent-chosen real-corpus MCP walk on disposable copied state. It does
+not change these initial observations or establish automated recognition.
+
 ## Reproduction
 
 From the project, with disposable HOME/XDG/MNEME_STATE_DIR/MNEME_CONFIG:
