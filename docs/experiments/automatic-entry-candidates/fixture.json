@@ -1,0 +1,83 @@
+{
+  "fixture_kind": "synthetic neutral data, not a real memory corpus",
+  "items": [
+    {
+      "review_id": "review_00000000000000000000000000000001:mnion:1",
+      "mnion": {
+        "summary": "Queue cursor checkpoint survives interrupted processing.",
+        "claim": null,
+        "valence": 0.5,
+        "rationale": null
+      },
+      "grouped_ids": [],
+      "receipt": {
+        "mneme_call_seq": 10
+      }
+    },
+    {
+      "review_id": "review_00000000000000000000000000000002:mnion:1",
+      "mnion": {
+        "summary": "Queue cursor checkpoint resumes interrupted processing.",
+        "claim": null,
+        "valence": 0.5,
+        "rationale": null
+      },
+      "grouped_ids": [],
+      "receipt": {
+        "mneme_call_seq": 12
+      }
+    },
+    {
+      "review_id": "review_00000000000000000000000000000003:mnion:1",
+      "mnion": {
+        "summary": "Queue cursor checkpoint verifies interrupted processing.",
+        "claim": null,
+        "valence": 0.5,
+        "rationale": null
+      },
+      "grouped_ids": [],
+      "receipt": {
+        "mneme_call_seq": 14
+      }
+    },
+    {
+      "review_id": "review_00000000000000000000000000000004:mnion:1",
+      "mnion": {
+        "summary": "Orchard blossom petals cover the garden path.",
+        "claim": null,
+        "valence": 0.5,
+        "rationale": null
+      },
+      "grouped_ids": [],
+      "receipt": {
+        "mneme_call_seq": 12
+      }
+    },
+    {
+      "review_id": "review_00000000000000000000000000000005:mnion:1",
+      "mnion": {
+        "summary": "Orchard blossom petals brighten the garden path.",
+        "claim": null,
+        "valence": 0.5,
+        "rationale": null
+      },
+      "grouped_ids": [],
+      "receipt": {
+        "mneme_call_seq": 13
+      }
+    },
+    {
+      "review_id": "review_00000000000000000000000000000006:mnion:1",
+      "mnion": {
+        "summary": "Queue cursor checkpoint predates the local window.",
+        "claim": null,
+        "valence": 0.5,
+        "rationale": null
+      },
+      "grouped_ids": [],
+      "receipt": {
+        "mneme_call_seq": 100
+      }
+    }
+  ]
+}

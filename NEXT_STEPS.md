@@ -44,6 +44,21 @@ This is a capability path, not mandatory promotion: a capture may be noise,
 deferred, or remain a useful standalone mnion. Neither retrieval nor graph
 connectivity automatically creates an engram.
 
+## Новый эксперимент — автоматическая зацепка связанной ветки
+
+Денис уточнил направление: согласованную связанную ветку можно удерживать как
+энграмму, не отдельное тело-пересказ; объектом становится указатель, а экспорт —
+позднейшим представлением. Entry-кандидат должен возникать без ручного оформления,
+иначе забытый след не получает шанса напомнить о себе.
+
+Разрешена первая изолированная скриптовая проба **без агента**: несколько
+признаков близости -> ассоциации -> карта -> автоматически адресуемый кандидат.
+Она описана в [automatic-entry-candidates](docs/experiments/automatic-entry-candidates/README.md).
+Это экспериментальная ветка, не установленный production-механизм. Текстовая
+близость — только приближение; complete-link группа — структурная форма, не
+подтверждённая смысловая согласованность. Полноценная консолидация ветки, критерий
+зрелости/сложности, возможный Dream и усиление остаются открытыми.
+
 ## Implemented mechanisms
 
 - Ephemeral capture, call-age/wall-clock lifecycle, pre-capture comparison,
