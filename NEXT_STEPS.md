@@ -227,6 +227,12 @@ prototypes just because their names resemble a retired approach.
 ## Reading order and engineering boundaries
 
 1. This file: current capability path and open work.
+   Рабочие описания поэтапного согласования (не реализованные API):
+   [ветка памяти](docs/drafts/memory-branch.md) и
+   [head / яркость / обновление входа](docs/drafts/branch-head-and-brightness.md).
+   Вторая запись фиксирует принятую рабочую форму «описание + неучтённое
+   приращение» и многомерную яркость; такты яркости и пороги ещё не выбраны.
+   Это ссылки на согласование, не изменение очереди `next`.
 2. [DECISIONS](DECISIONS.md): principles, historical decisions and open proposals.
 3. Accepted [connection](docs/plans/authored-connections.md) and
    [ingress](docs/plans/connected-ingress.md) contracts.
