@@ -232,6 +232,8 @@ prototypes just because their names resemble a retired approach.
    [head / яркость / обновление входа](docs/drafts/branch-head-and-brightness.md).
    Вторая запись фиксирует принятую рабочую форму «описание + неучтённое
    приращение» и многомерную яркость; такты яркости и пороги ещё не выбраны.
+   Вместимость карты определяется по инкрементально поддерживаемой смете
+   read-model, без полного обхода при открытии; численные бюджеты ещё открыты.
    Это ссылки на согласование, не изменение очереди `next`.
 2. [DECISIONS](DECISIONS.md): principles, historical decisions and open proposals.
 3. Accepted [connection](docs/plans/authored-connections.md) and
