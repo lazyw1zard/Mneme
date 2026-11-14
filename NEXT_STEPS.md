@@ -198,6 +198,11 @@ artifact store, broaden capture, or change schemas on the basis of this note.
 
 ## Possible later work — not the immediate bundle
 
+Reference shelf, not an added task: [идеи из Cognee — варианты и ограничения](docs/05-mnion-options-and-optimizations.md#cognee-ideas).
+Общий обзор / узнаваемость ветки, временное расширение кандидатов, адресная
+обратная связь и ленивое остывание сохранены для обсуждения. Алгоритмы,
+формулы и зависимости не выбраны; очередь `next` и план ветки не меняются.
+
 - Pointer/return-attempt history; useful and unsuccessful return feedback.
 - Compact source-grounded context briefs.
 - Situation-sensitive arc selection, strengthening/cooling of routes.
