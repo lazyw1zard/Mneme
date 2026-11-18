@@ -319,7 +319,8 @@ def test_real_mcp_stdio_neighbors_and_integrated_relation(tmp_path):
     from mnion.micro_consolidation import load_micro_consolidation_review_receipts
     seed(tmp_path, seqs=(0,))
     (tmp_path/'config.toml').write_text('[review_pressure]\ncall_seq_interval=2\npacket_limit=2\n[consolidation_neighbors]\nlookback_calls=40\ncandidate_limit=1\n')
-    env = dict(os.environ, MNEME_STATE_DIR=str(tmp_path), MNEME_CONFIG=str(tmp_path/'config.toml'))
+    env = dict(os.environ, MNEME_STATE_DIR=str(tmp_path), MNEME_CONFIG=str(tmp_path/'config.toml'),
+               PYTHONDONTWRITEBYTECODE='1', PYTHONPATH=str(Path(__file__).resolve().parents[1]/'src'))
     params = StdioServerParameters(command=sys.executable,args=['-B','-m','mnion.mcp_server'],env=env)
     def unpack(result):
         if getattr(result,'isError',False):
@@ -330,7 +331,7 @@ def test_real_mcp_stdio_neighbors_and_integrated_relation(tmp_path):
             async with ClientSession(reader,writer) as session:
                 await session.initialize()
                 schemas = await session.list_tools()
-                assert len(schemas.tools) == 7
+                assert len(schemas.tools) == 8
                 await session.call_tool('capture',{'delta':'Copper vessel test observation.','valence':.9})
                 got = unpack(await session.call_tool('capture',{'delta':'Violet horizon test observation.','valence':.8}))
                 assert got['review_packet']['neighbors']['candidates'][0]['review_id'] == 'review_seed0'

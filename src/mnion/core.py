@@ -296,7 +296,7 @@ def _effective_valence_by_id(ledger_path: str | Path) -> dict[str, float]:
     if not path.exists():
         return {}
     values: dict[str, float] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
         data = json.loads(line)
@@ -502,7 +502,8 @@ def load_memory_tags(
         return []
     seq_path = _resolve_state_path(path, state_path)
     current = now or _utc_now()
-    raw_rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    # JSONL records are delimited by physical LF, not Unicode separators inside delta.
+    raw_rows = [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
     effective = _effective_valence_by_id(path)
     refreshed_seq_by_id: dict[str, int] = {}
     for data in raw_rows:

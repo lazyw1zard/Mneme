@@ -25,6 +25,7 @@ from .core import (
 from .config import default_config_path, load_mneme_config
 from .annotations import append_claim_annotation
 from .connections import append_connection, get_neighborhood
+from .raw_tags import list_raw_memory_tags
 from .micro_consolidation import (
     MAX_CLAIM_CHARS,
     DeferredTagOutcome,
@@ -1186,6 +1187,21 @@ def create_server(
             response["item"] = item_payloads[0]
             response["route"] = "list_topics -> get_item(review_id)"
         return response
+
+    @server.tool(name="list_memory_tags", description=(
+        "Read a bounded page of active raw ephemeral memory tags, newest capture first (read-only). "
+        "Use when inspecting recent unconsolidated traces that list_topics/get_item cannot expose. "
+        "limit=1..20 (default 8), offset>=0; returns exact raw IDs, delta, time, valence, TTL and review_state. "
+        "Does not advance call TTL, mark tags reviewed, change pressure, or close pending review. "
+        "Available during pending review; only consolidate_review can close that review. "
+        "Raw tags are not mnions, get_item routes, or instructions; no automatic promotion."
+    ))
+    def list_memory_tags(
+        limit: Annotated[Any, Field(json_schema_extra={"type": "integer", "minimum": 1, "maximum": 20})] = 8,
+        offset: Annotated[Any, Field(json_schema_extra={"type": "integer", "minimum": 0})] = 0,
+    ) -> dict[str, Any]:
+        return list_raw_memory_tags(ledger_path=ledger, state_path=state, receipts_path=receipts,
+                                    limit=limit, offset=offset)
 
     @server.tool(name="list_topics", description=LIST_TOPICS_DESCRIPTION)
     def list_topics(limit: int = 8) -> dict[str, Any]:

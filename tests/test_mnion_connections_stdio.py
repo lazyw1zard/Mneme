@@ -29,7 +29,7 @@ def test_real_stdio_connected_fragment_and_retry(tmp_path):
             async with ClientSession(reader,writer) as session:
                 await session.initialize()
                 tools={t.name for t in (await session.list_tools()).tools}
-                assert tools=={'capture','consolidate_review','list_topics','get_item','annotate_claim','connect_items','get_neighborhood'}
+                assert tools=={'capture','consolidate_review','list_memory_tags','list_topics','get_item','annotate_claim','connect_items','get_neighborhood'}
                 async def call(name,**args):
                     response=await session.call_tool(name,args)
                     assert not getattr(response,'isError',getattr(response,'is_error',False))

@@ -77,6 +77,37 @@ Kernel
   = explicit semantic spine; Mneme points to it and proposes updates, not replaces it
 ```
 
+## Inspect raw memory tags
+
+MCP `list_memory_tags(limit=8, offset=0)` explicitly previews **active raw tags**
+before consolidation. It is separate from `list_topics` / `get_item`, which expose
+consolidated mnions. No tags are injected into the topic map or automatic prefetch,
+and this slice adds no CLI, reminders or new review workflow.
+
+- `limit` is an integer in **1..20**; `offset` is a nonnegative integer. Pages are
+  newest-capture-first (reverse ledger order), not reinforcement order. `has_more`
+  reports another active tag beyond the page. Offset pages are best-effort reads,
+  not an atomic snapshot across concurrent captures or expiry.
+- Each row preserves the exact raw `id`, `delta`, `captured_at`, captured `valence`,
+  `ttl_seconds`, `expires_at`, `call_ttl`, `birth_call_seq`, and adds
+  `effective_valence` (including reinforcement) and derived `review_state`:
+  `unread`, `reviewed`, or `deferred`. **Preview itself never marks a tag reviewed.**
+  The response includes `mneme_call_seq`, `active_count` and `returned_count`.
+- Existing wall/call-expiry and high-valence pinning rules determine activity.
+  TTL fields are the captured policy/deadlines, not a promise of remaining lifetime;
+  reinforcement can refresh call age and pinning can outlast nominal expiry.
+- Reading does not advance the call counter, change review pressure/read-state,
+  create files, refresh SQLite, or open/clear/repair a pending latch. It remains
+  available during pending review; `capture` stays blocked until the existing
+  `consolidate_review` path succeeds. Corrupt sources return a guarded error,
+  not a successful empty-memory claim.
+- `do_not_infer` distinguishes raw IDs from `get_item` routes, excludes automatic
+  promotion and privileged instructions, and warns that an empty/partial page is
+  not evidence of absent memory. Expired tags are not returned.
+
+Only the **output** is page-bounded: this explicit tool reuses the JSONL loaders
+and derived receipt-state internally, not a new indexed or pre-turn hot path.
+
 ## Neighbors during consolidation
 
 Review packets can expose bounded temporal candidates and accept optional authored
